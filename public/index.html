@@ -791,7 +791,7 @@ main.addEventListener("change",e=>{
 document.addEventListener("click",e=>{if(ui.colMenu&&!e.target.closest(".cm")){ui.colMenu=null;render()}});
 document.addEventListener("keydown",e=>{
   if(e.key!=="Escape")return;
-  if(F){closeSheet();return}
+  if(F){requestClose();return}
   if(ui.colMenu){const id=ui.colMenu;ui.colMenu=null;render();document.getElementById("cm_"+id)?.focus()}
 });
 document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(!b||b.dataset.tab===tab)return;tab=b.dataset.tab;ui.colMenu=null;try{localStorage.setItem("tab",tab)}catch(_){};render();main.scrollTop=0};
@@ -818,9 +818,23 @@ function openForm(kind,id){
   for(const k of Object.keys(data))if(k.startsWith("_"))delete data[k];
   if(kind==="order")for(const l of data.lines)l._ret=num(l.returned)>0||num(l.refund)>0;
   ui.colMenu=null;
-  F={kind,col,id:ex?ex.id:null,data,err:"",sure:false,fresh:true};
+  F={kind,col,id:ex?ex.id:null,data,err:"",sure:false,fresh:true,orig:JSON.stringify(data)};
   drawSheet();
 }
+// форма закривається без питань, лише якщо в ній нічого не змінили
+const isDirty=()=>!!F&&JSON.stringify(F.data)!==F.orig;
+let closing=false;
+async function requestClose(){
+  if(!F||closing)return;
+  if(isDirty()){
+    closing=true;
+    const ok=await confirmBox("Закрити без збереження?","Те, що ви ввели в цій формі, буде втрачено.","Закрити без збереження",true);
+    closing=false;
+    if(!ok){document.querySelector(".sheet-b input,.sheet-b select")?.focus({preventScroll:true});return}
+  }
+  closeSheet();
+}
+addEventListener("beforeunload",e=>{if(isDirty()){e.preventDefault();e.returnValue=""}});
 function closeSheet(){F=null;hideTip();document.getElementById("sheetRoot").innerHTML="";document.body.style.removeProperty("overflow")}
 const titles={product:["Новий запис у довіднику","Товар або матеріал"],kit:["Новий набір","Набір"],purchase:["Нова закупівля","Закупівля"],order:["Новий продаж","Продаж"],expense:["Нова витрата","Витрата"]};
 function fld(key,label,o={}){
@@ -981,7 +995,7 @@ function drawSheet(){
   const ae=document.activeElement,fid=ae&&root.contains(ae)?ae.id:null;
   const t=titles[F.kind][F.id?1:0];
   root.innerHTML=`<div class="scrim" id="scrim"><div class="sheet${F.fresh?" anim":""}" role="dialog" aria-modal="true" aria-label="${t}">
-    <div class="sheet-h"><h2>${t}</h2><button type="button" class="icon-btn" id="closeS" aria-label="Закрити" data-tip="Закрити без збереження (Esc)">✕</button></div>
+    <div class="sheet-h"><h2>${t}</h2><button type="button" class="icon-btn" id="closeS" aria-label="Закрити" data-tip="Закрити (Esc). Якщо ви щось ввели, спершу спитаю">✕</button></div>
     <form class="sheet-b" id="form" novalidate>${F.err?`<p class="err" role="alert">${esc(F.err)}</p>`:""}${sheetBody()}<button type="submit" hidden></button></form>
     <div class="sheet-f">${F.id&&canWrite?`<button type="button" class="btn danger${F.sure?" sure":""}" id="delS" data-tip="Видалити запис назавжди. Знадобиться підтвердження">${F.sure?"Так, видалити":"Видалити"}</button>`:""}<span class="sp"></span><button type="button" class="btn" id="cancelS">Скасувати</button>${canWrite?`<button type="button" class="btn primary" id="saveS">Зберегти</button>`:""}</div>
   </div></div>`;
@@ -1013,7 +1027,7 @@ sheetRoot.addEventListener("change",e=>{
 });
 sheetRoot.addEventListener("click",async e=>{
   if(!F)return;const t=e.target,arr=F.data[linesKey()];
-  if(t.id==="scrim"||t.closest("#closeS")||t.closest("#cancelS"))return closeSheet();
+  if(t.id==="scrim"||t.closest("#closeS")||t.closest("#cancelS"))return requestClose();
   if(t.closest("#saveS"))return save();
   const pt=t.closest("[data-ptype]");if(pt){F.data.type=pt.dataset.ptype;if(F.data.type==="material"&&!F.data.category)F.data.category="Пакування";return drawSheet()}
   const nt=t.closest("[data-ntype]");if(nt){F.data[linesKey()][+nt.dataset.l]._new.type=nt.dataset.v;drawSheet();document.getElementById(`l_${nt.dataset.l}_newname`)?.focus();return}
