@@ -1,0 +1,767 @@
+<title>Облік магазину</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: sticky header with section tabs; each section = toolbar + ledger table; forms open in a side sheet */
+/* Monochrome: ink on paper, state carried by fill/outline/weight instead of hue */
+:root{
+  --bg:#F5F5F5; --surface:#FFFFFF; --sunken:#EFEFEF; --zebra:#FAFAFA; --ink:#111111; --muted:#6B6B6B; --line:#DEDEDE; --line-strong:#BDBDBD;
+  --accent:#111111; --accent-ink:#FFFFFF; --accent-soft:#EDEDED; --bar2:#C8C8C8;
+  --pos:#111111; --neg:#111111; --warn:#111111; --warn-soft:#EDEDED; --neg-soft:#111111; --pos-soft:#FFFFFF;
+  --f-display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D0D0D; --surface:#161616; --sunken:#202020; --zebra:#1A1A1A; --ink:#F2F2F2; --muted:#9A9A9A; --line:#2E2E2E; --line-strong:#4A4A4A;
+  --accent:#F2F2F2; --accent-ink:#0D0D0D; --accent-soft:#242424; --bar2:#4F4F4F;
+  --pos:#F2F2F2; --neg:#F2F2F2; --warn:#F2F2F2; --warn-soft:#2A2A2A; --neg-soft:#F2F2F2; --pos-soft:#161616; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D0D0D; --surface:#161616; --sunken:#202020; --zebra:#1A1A1A; --ink:#F2F2F2; --muted:#9A9A9A; --line:#2E2E2E; --line-strong:#4A4A4A;
+  --accent:#F2F2F2; --accent-ink:#0D0D0D; --accent-soft:#242424; --bar2:#4F4F4F;
+  --pos:#F2F2F2; --neg:#F2F2F2; --warn:#F2F2F2; --warn-soft:#2A2A2A; --neg-soft:#F2F2F2; --pos-soft:#161616; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:12px 4px}
+.brand{font-family:var(--f-display);font-weight:600;font-size:17px;letter-spacing:-.01em;margin:0}
+.brand small{font-family:var(--f-body);font-weight:500;font-size:12px;color:var(--muted);margin-left:8px;letter-spacing:0}
+.sync{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.sync.ok i{background:var(--pos)} .sync.bad i{background:var(--neg)}
+nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{all:unset;cursor:pointer;padding:10px 12px 11px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:6px}
+main{padding-block:20px 60px}
+h2{font-family:var(--f-display);font-weight:500;font-size:20px;margin:0;text-wrap:balance}
+h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px;font-weight:600}
+.num,td.n,th.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.pos{color:var(--pos)} .neg{color:var(--neg);font-weight:700} .mut{color:var(--muted)}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.bar .grow{flex:1 1 auto}
+button.btn,.btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--neg);border-color:var(--neg)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn:disabled{opacity:.5;cursor:default}
+input,select,textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0;width:100%}
+input[type=search]{max-width:260px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:500;color:var(--muted)}
+.banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px dashed var(--ink);color:var(--ink);border-radius:var(--r);padding:10px 14px;margin-bottom:18px;font-size:14px}
+.banner p{margin:0;flex:1 1 280px}
+/* summary */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:22px}
+.kpi{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi span{font-size:12px;color:var(--muted);font-weight:500}
+.kpi b{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.kpi em{font-style:normal;font-size:12px;color:var(--muted)}
+.kpi.main{background:var(--ink);color:var(--bg)}
+.kpi.main span,.kpi.main em,.kpi.main b{color:var(--bg)}
+.kpi.main span,.kpi.main em{opacity:.7}
+.grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:22px}
+@media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.pl{width:100%;border-collapse:collapse;font-size:14px}
+.pl td{padding:6px 0;border-bottom:1px dashed var(--line)}
+.pl tr.tot td{border-bottom:0;border-top:1px solid var(--ink);font-weight:700;padding-top:9px}
+.pl td.ind{padding-left:14px;color:var(--muted)}
+.chart svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+/* tables */
+.tw{overflow:auto;max-height:max(340px,calc(100vh - 230px));background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+table.t{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+.t th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;text-align:left;padding:0;border-bottom:1px solid var(--line-strong);background:var(--sunken);white-space:nowrap;position:sticky;top:0;z-index:2}
+.t th.n{text-align:right}
+.sortb{all:unset;box-sizing:border-box;cursor:pointer;display:flex;gap:6px;align-items:center;width:100%;padding:11px 12px}
+th.n .sortb{justify-content:flex-end}
+.sortb:hover{color:var(--ink)}
+.sortb:focus-visible{outline:2px solid var(--ink);outline-offset:-3px;border-radius:4px}
+.sortb .arr{font-size:11px;opacity:.3;width:.8em;text-align:center}
+th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
+th[aria-sort="ascending"] .arr,th[aria-sort="descending"] .arr{opacity:1}
+.t td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;background:var(--surface)}
+.t th:first-child,.t td:first-child{position:sticky;left:0;z-index:1;box-shadow:1px 0 0 var(--line)}
+.t thead th:first-child{z-index:3}
+.t tbody tr:nth-child(even) td{background:var(--zebra)}
+.t tbody tr:last-child td{border-bottom:0}
+.t tbody tr.click{cursor:pointer}
+.t tbody tr.click:hover td{background:var(--sunken)}
+.t tbody tr.click:focus-visible td{background:var(--sunken);box-shadow:inset 0 0 0 1px var(--ink)}
+.t tbody tr.click:focus-visible{outline:none}
+.t tfoot td{font-weight:700;border-top:1px solid var(--ink);padding:11px 12px;background:var(--sunken);position:sticky;bottom:0;white-space:nowrap}
+.sku{font-weight:600;font-size:13px;letter-spacing:.02em}
+.sub{display:block;color:var(--muted);font-size:12.5px}
+.chip{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap;border:1px solid var(--ink)}
+.chip.ok{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+.chip.low{background:var(--warn-soft);color:var(--ink)}
+.chip.out{background:var(--ink);color:var(--bg)}
+.chip.demo{background:transparent;color:var(--muted);border:1px dashed var(--line-strong)}
+.cm{position:relative}
+.cm-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:8;background:var(--surface);border:1px solid var(--ink);border-radius:var(--r);padding:6px;width:250px;max-width:calc(100vw - 32px);max-height:60vh;overflow:auto;box-shadow:0 10px 30px rgba(0,0,0,.18);display:flex;flex-direction:column}
+.cm-pop label{display:flex;gap:10px;align-items:center;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:14px}
+.cm-pop label:hover{background:var(--sunken)}
+.cm-pop input{width:16px;height:16px;accent-color:var(--ink);margin:0}
+.cm-f{display:flex;justify-content:space-between;gap:6px;border-top:1px solid var(--line);margin-top:4px;padding-top:6px}
+.cm-f .btn{padding:6px 8px;font-size:13px}
+.count{font-size:13px;color:var(--muted)}
+.empty{padding:36px 16px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+.warnlist{margin:0;padding-left:18px;font-size:13.5px}
+.warnlist li{margin-bottom:4px}
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,16,14,.45);z-index:20;display:flex;justify-content:flex-end}
+.sheet{background:var(--bg);width:min(720px,100%);height:100%;display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,.2)}
+.sheet-h{display:flex;align-items:center;gap:10px;padding:calc(14px + env(safe-area-inset-top,0px)) max(18px,env(safe-area-inset-right,0px)) 14px 18px;background:var(--surface);border-bottom:1px solid var(--line)}
+.sheet-h h2{font-size:17px;flex:1}
+.sheet-b{flex:1;overflow-y:auto;padding:18px max(18px,env(safe-area-inset-right,0px)) 18px 18px;display:flex;flex-direction:column;gap:16px}
+.sheet-f{display:flex;gap:10px;flex-wrap:wrap;padding:12px max(18px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) 18px;background:var(--surface);border-top:1px solid var(--line)}
+.sheet-f .sp{flex:1}
+.fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.lines{display:flex;flex-direction:column;gap:10px}
+.line{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;align-items:end}
+.line .wide{grid-column:1/-1}
+.line .x{justify-self:end}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+.hint.w{color:var(--warn)}
+.calc{background:var(--accent-soft);border-radius:var(--r);padding:12px 14px;font-size:14px;display:flex;flex-wrap:wrap;gap:6px 22px}
+.calc b{font-variant-numeric:tabular-nums}
+.err{color:var(--ink);font-weight:600;font-size:13px;margin:0;padding:8px 12px;border-left:3px solid var(--ink);background:var(--surface)}
+.hint.w{font-weight:600}
+details.help{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;margin-top:22px;font-size:14px}
+details.help summary{cursor:pointer;font-weight:600}
+details.help p{margin:8px 0 0;max-width:72ch;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="top">
+      <h1 class="brand">Облік магазину<small>гривні · середньозважена собівартість</small></h1>
+      <div class="sync" id="sync"><i></i><span>Підключення…</span></div>
+    </div>
+    <nav role="tablist" id="tabs">
+      <button role="tab" data-tab="summary" aria-selected="true">Зведення</button>
+      <button role="tab" data-tab="orders">Продажі</button>
+      <button role="tab" data-tab="purchases">Закупівлі</button>
+      <button role="tab" data-tab="products">Товари</button>
+      <button role="tab" data-tab="kits">Набори</button>
+      <button role="tab" data-tab="expenses">Витрати</button>
+    </nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="sheetRoot"></div>
+
+<script>
+"use strict";
+const COLS=["products","kits","purchases","orders","expenses"];
+const S={products:[],kits:[],purchases:[],orders:[],expenses:[]};
+let db=null, canWrite=true, tab="summary", period="all", C=null, firstLoad=new Set(), dl=null;
+const ui={q:{},lowOnly:false};
+const EXP_CATS=["Реклама","Сервіси та підписки","Пакування для складу","Банк та еквайринг","Оренда","Зарплата","Податки","Інше"];
+
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nf=new Intl.NumberFormat("uk-UA",{minimumFractionDigits:2,maximumFractionDigits:2});
+const nq=new Intl.NumberFormat("uk-UA",{maximumFractionDigits:2});
+const money=v=>nf.format(Math.round((+v||0)*100)/100)+" ₴";
+const qty=v=>nq.format(+v||0);
+const pct=v=>isFinite(v)?nq.format(Math.round(v*10)/10)+"%":"—";
+const num=v=>{const n=parseFloat(String(v??"").replace(/\s/g,"").replace(",","."));return isFinite(n)?n:0};
+const today=()=>new Date().toISOString().slice(0,10);
+const fmtDate=d=>d?d.split("-").reverse().join("."):"";
+const MONTHS=["січень","лютий","березень","квітень","травень","червень","липень","серпень","вересень","жовтень","листопад","грудень"];
+const monthName=m=>{const[y,mm]=m.split("-");return MONTHS[+mm-1]+" "+y};
+const signCls=v=>v<0?"neg":v>0?"pos":"";
+
+/* ---------- розрахунки ---------- */
+function compute(){
+  const P={},K={};
+  for(const p of S.products)P[p.id]={...p,buys:[],bought:0,buyCost:0,sold:0,returned:0,revenue:0,profit:0,soldDirect:0};
+  for(const k of S.kits)K[k.id]={...k,sold:0,revenue:0,profit:0};
+  const warnings=[];
+  // закупівлі: доставка партії ділиться пропорційно вартості товару
+  for(const b of S.purchases){
+    const lines=b.lines||[];
+    const goods=lines.reduce((s,l)=>s+num(l.qty)*num(l.price),0);
+    const tq=lines.reduce((s,l)=>s+num(l.qty),0);
+    b._total=0;b._qty=tq;
+    for(const l of lines){
+      const base=num(l.qty)*num(l.price);
+      const share=goods>0?base/goods:(tq?num(l.qty)/tq:0);
+      const cost=base+num(l.extra)+num(b.shipping)*share;
+      b._total+=cost;
+      const p=P[l.productId];
+      if(p){p.buys.push({date:b.date||"",qty:num(l.qty),cost});p.bought+=num(l.qty);p.buyCost+=cost}
+    }
+  }
+  for(const p of Object.values(P)){p.buys.sort((a,b)=>a.date<b.date?-1:1);p.avg=p.bought?p.buyCost/p.bought:0}
+  // собівартість на дату продажу = закуплене до цієї дати включно / кількість
+  const avgAt=(pid,date)=>{
+    const p=P[pid];if(!p)return 0;let q=0,c=0;
+    for(const x of p.buys){if(x.date>date)break;q+=x.qty;c+=x.cost}
+    return q?c/q:p.avg;
+  };
+  for(const o of S.orders){
+    o._rev=0;o._refund=0;o._cogs=0;o._ret=0;
+    const ls=(o.lines||[]).map(l=>{
+      const kit=l.kind==="kit";
+      const comps=kit?(l.components||K[l.refId]?.components||[]):[{productId:l.refId,qty:1}];
+      const q=num(l.qty),r=Math.min(num(l.returned),q);
+      const unitCost=comps.reduce((s,c)=>s+num(c.qty)*avgAt(c.productId,o.date||""),0);
+      for(const c of comps){
+        const p=P[c.productId];
+        if(p){p.sold+=num(c.qty)*q;p.returned+=num(c.qty)*r;if(!kit)p.soldDirect+=q;
+          if(p.buys.length&&o.date&&o.date<p.buys[0].date)warnings.push(`Продаж ${o.number||""} від ${fmtDate(o.date)}: ${p.sku} продано раніше за першу закупівлю (${fmtDate(p.buys[0].date)}). Собівартість взято середню за весь час.`)}
+      }
+      const rev=q*num(l.price)-num(l.discount),refund=num(l.refund),cogs=unitCost*(q-r);
+      o._rev+=rev;o._refund+=refund;o._cogs+=cogs;o._ret+=r;
+      return{l,kit,rev,refund,cogs};
+    });
+    o._extra=num(o.commission)+num(o.shipCost);
+    o._net=o._rev-o._refund;
+    o._profit=o._net-o._cogs-o._extra;
+    for(const x of ls){
+      const share=o._rev>0?x.rev/o._rev:(ls.length?1/ls.length:0);
+      const pr=x.rev-x.refund-x.cogs-o._extra*share;
+      const tgt=x.kit?K[x.l.refId]:P[x.l.refId];
+      if(tgt){tgt.revenue+=x.rev-x.refund;tgt.profit+=pr;if(x.kit)tgt.sold+=num(x.l.qty)}
+    }
+  }
+  for(const p of Object.values(P)){
+    p.stock=p.bought-p.sold+p.returned;
+    p.value=Math.max(p.stock,0)*p.avg;
+    p.status=p.stock<=0?"out":p.stock<=num(p.minStock)?"low":"ok";
+    if(p.stock<0)warnings.push(`${p.sku}: залишок від'ємний (${qty(p.stock)} шт.). Ймовірно, не внесена закупівля.`);
+  }
+  for(const k of Object.values(K)){
+    const comps=k.components||[];
+    k.cost=comps.reduce((s,c)=>s+num(c.qty)*(P[c.productId]?.avg||0),0);
+    k.canBuild=comps.length?Math.max(0,Math.min(...comps.map(c=>num(c.qty)?Math.floor((P[c.productId]?.stock||0)/num(c.qty)):Infinity))):0;
+    if(!isFinite(k.canBuild))k.canBuild=0;
+  }
+  return{P,K,avgAt,warnings:[...new Set(warnings)]};
+}
+const inPeriod=d=>period==="all"||(d||"").startsWith(period);
+
+function periodTotals(pred){
+  const t={orders:0,rev:0,refund:0,cogs:0,commission:0,ship:0,expenses:0,purchases:0,units:0};
+  for(const o of S.orders)if(pred(o.date)){t.orders++;t.rev+=o._rev;t.refund+=o._refund;t.cogs+=o._cogs;t.commission+=num(o.commission);t.ship+=num(o.shipCost)}
+  for(const e of S.expenses)if(pred(e.date))t.expenses+=num(e.amount);
+  for(const b of S.purchases)if(pred(b.date))t.purchases+=b._total;
+  t.net=t.rev-t.refund;t.gross=t.net-t.cogs-t.commission-t.ship;t.result=t.gross-t.expenses;
+  t.cash=t.net-t.commission-t.ship-t.expenses-t.purchases;
+  return t;
+}
+
+/* ---------- рендер ---------- */
+const name=(pid)=>{const p=S.products.find(x=>x.id===pid);return p?p.sku:"(видалений товар)"};
+const kitName=(kid)=>{const k=S.kits.find(x=>x.id===kid);return k?k.sku:"(видалений набір)"};
+function render(){
+  C=compute();
+  document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===tab));
+  const m=document.getElementById("main");
+  const demo=COLS.some(c=>S[c].some(d=>d.demo));
+  let h=demo?`<div class="banner"><p><b>Зараз тут приклади даних.</b> Подивіться, як усе рахується, потім видаліть їх і вносьте свої товари.</p>${canWrite?`<button class="btn" id="clearDemo">Видалити приклади</button>`:""}</div>`:"";
+  h+=({summary:vSummary,orders:vOrders,purchases:vPurchases,products:vProducts,kits:vKits,expenses:vExpenses})[tab]();
+  m.innerHTML=h;
+  bindMain();
+}
+function periodSelect(){
+  const ms=new Set();
+  for(const c of ["orders","purchases","expenses"])for(const d of S[c])if(d.date)ms.add(d.date.slice(0,7));
+  const months=[...ms].sort().reverse(),years=[...new Set(months.map(m=>m.slice(0,4)))];
+  return `<select id="period" style="width:auto">
+    <option value="all"${period==="all"?" selected":""}>Увесь час</option>
+    ${years.map(y=>`<option value="${y}"${period===y?" selected":""}>${y} рік</option>`).join("")}
+    ${months.map(m=>`<option value="${m}"${period===m?" selected":""}>${monthName(m)}</option>`).join("")}
+  </select>`;
+}
+function addBtn(label,kind){return canWrite?`<button class="btn primary" data-new="${kind}">${label}</button>`:""}
+function searchBox(k,ph){return `<input type="search" id="q_${k}" data-q="${k}" placeholder="${ph}" value="${esc(ui.q[k]||"")}">`}
+const match=(k,txt)=>{const q=(ui.q[k]||"").trim().toLowerCase();return !q||txt.toLowerCase().includes(q)};
+
+function vSummary(){
+  const t=periodTotals(inPeriod);
+  const P=Object.values(C.P);
+  const stockUnits=P.reduce((s,p)=>s+Math.max(p.stock,0),0),stockVal=P.reduce((s,p)=>s+p.value,0);
+  const low=P.filter(p=>p.status!=="ok").sort((a,b)=>a.stock-b.stock);
+  const margin=t.net?t.gross/t.net*100:NaN;
+  if(!S.orders.length&&!S.purchases.length&&!S.products.length)return `<div class="bar"><h2 class="grow">Зведення</h2></div><div class="tw"><div class="empty"><b>Даних поки немає</b>Почніть з вкладки «Товари»: додайте перший товар, потім внесіть закупівлю.</div></div>`;
+  // топ за прибутком у періоді
+  const top={};
+  for(const o of S.orders)if(inPeriod(o.date))for(const l of o.lines||[]){
+    const key=(l.kind==="kit"?"k:":"p:")+l.refId;
+    const share=o._rev>0?(num(l.qty)*num(l.price)-num(l.discount))/o._rev:0;
+    top[key]=top[key]||{label:l.kind==="kit"?kitName(l.refId)+" (набір)":name(l.refId),q:0,rev:0};
+    top[key].q+=num(l.qty)-Math.min(num(l.returned),num(l.qty));top[key].rev+=(num(l.qty)*num(l.price)-num(l.discount)-num(l.refund));
+  }
+  const topList=Object.values(top).sort((a,b)=>b.rev-a.rev).slice(0,6);
+  return `
+  <div class="bar"><h2 class="grow">Зведення</h2>${periodSelect()}</div>
+  <div class="kpis">
+    <div class="kpi"><span>Виручка</span><b>${money(t.net)}</b><em>${t.orders} замовл. · сер. чек ${money(t.orders?t.net/t.orders:0)}</em></div>
+    <div class="kpi"><span>Прибуток від продажів</span><b class="${signCls(t.gross)}">${money(t.gross)}</b><em>маржа ${pct(margin)}</em></div>
+    <div class="kpi"><span>Інші витрати</span><b>${money(t.expenses)}</b><em>реклама, сервіси, оренда…</em></div>
+    <div class="kpi main"><span>Чистий результат</span><b class="${signCls(t.result)}">${money(t.result)}</b><em>прибуток − витрати</em></div>
+    <div class="kpi"><span>Товар на складі</span><b>${money(stockVal)}</b><em>${qty(stockUnits)} шт. за собівартістю</em></div>
+  </div>
+  <div class="grid2">
+    <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+      <div class="panel"><h3>Звіт про прибуток${period==="all"?"":" · "+esc(period.length===4?period+" рік":monthName(period))}</h3>
+        <table class="pl">
+          <tr><td>Продажі після знижок</td><td class="num">${money(t.rev)}</td></tr>
+          <tr><td class="ind">− повернення грошей покупцям</td><td class="num">${money(-t.refund)}</td></tr>
+          <tr><td class="ind">− собівартість проданого</td><td class="num">${money(-t.cogs)}</td></tr>
+          <tr><td class="ind">− комісії майданчиків</td><td class="num">${money(-t.commission)}</td></tr>
+          <tr><td class="ind">− доставка й пакування за рахунок магазину</td><td class="num">${money(-t.ship)}</td></tr>
+          <tr><td><b>Прибуток від продажів</b></td><td class="num"><b>${money(t.gross)}</b></td></tr>
+          <tr><td class="ind">− інші витрати</td><td class="num">${money(-t.expenses)}</td></tr>
+          <tr class="tot"><td>Чистий результат</td><td class="num ${signCls(t.result)}">${money(t.result)}</td></tr>
+        </table>
+        <p class="hint" style="margin-top:12px">Рух грошей за цей же період: надійшло ${money(t.net-t.commission-t.ship)}, витрачено на закупівлі ${money(t.purchases)} та інші витрати ${money(t.expenses)}. Різниця: <b class="${signCls(t.cash)}">${money(t.cash)}</b>. Вона відрізняється від прибутку, бо закуплений товар стає витратою лише коли продається.</p>
+      </div>
+      <div class="panel chart"><h3>По місяцях</h3>${chart()}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+      <div class="panel"><h3>Треба докупити</h3>${low.length?`<table class="pl">${low.slice(0,10).map(p=>`<tr><td><span class="sku">${esc(p.sku)}</span> <span class="mut">${esc(p.name)}</span></td><td class="num"><span class="chip ${p.status}">${qty(p.stock)} шт.</span></td></tr>`).join("")}</table>`:`<p class="hint">Усіх товарів вистачає.</p>`}</div>
+      <div class="panel"><h3>Найбільша виручка</h3>${topList.length?`<table class="pl">${topList.map(x=>`<tr><td>${esc(x.label)} <span class="mut">· ${qty(x.q)} шт.</span></td><td class="num">${money(x.rev)}</td></tr>`).join("")}</table>`:`<p class="hint">Продажів у цьому періоді немає.</p>`}</div>
+      ${C.warnings.length?`<div class="panel"><h3>Перевірте</h3><ul class="warnlist">${C.warnings.slice(0,8).map(w=>`<li>${esc(w)}</li>`).join("")}</ul></div>`:""}
+    </div>
+  </div>
+  <details class="help"><summary>Як рахуються показники</summary>
+    <p>Собівартість продажу береться за середньозваженою ціною всіх закупівель цього товару до дати продажу включно. Доставка партії від постачальника ділиться між товарами партії пропорційно їхній вартості.</p>
+    <p>Закупівля не є витратою одразу: у прибуток потрапляє собівартість лише проданих одиниць, решта лишається товаром на складі.</p>
+    <p>Набір при продажі списує свої компоненти зі складу. Склад набору запам'ятовується в кожному продажі, тож якщо ви пізніше зміните набір, старі продажі не перерахуються.</p>
+    <p>Повернення: вкажіть у продажі, скільки одиниць повернулось на склад і скільки грошей повернули. Повернені одиниці знову з'являються в залишку, а їх собівартість знімається з продажу.</p>
+  </details>`;
+}
+function chart(){
+  const ms=new Set();
+  for(const c of ["orders","expenses"])for(const d of S[c])if(d.date)ms.add(d.date.slice(0,7));
+  const months=[...ms].sort().slice(-12);
+  if(!months.length)return `<p class="hint">Тут з'явиться графік, коли будуть продажі.</p>`;
+  const rows=months.map(m=>({m,...periodTotals(d=>(d||"").startsWith(m))}));
+  const max=Math.max(1,...rows.map(r=>Math.max(r.net,r.result,0))),min=Math.min(0,...rows.map(r=>r.result));
+  const W=620,H=220,pl=58,pb=26,pt=8,ih=H-pb-pt,iw=W-pl-8;
+  const y=v=>pt+ih*(max-v)/(max-min);
+  const step=iw/months.length,bw=Math.min(22,step*.34);
+  const ticks=[0,max/2,max];if(min<0)ticks.push(min);
+  const short=v=>Math.abs(v)>=1000?nq.format(Math.round(v/100)/10)+"к":nq.format(Math.round(v));
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Виручка і чистий результат по місяцях"><defs><pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="var(--surface)"/><line x1="0" y1="0" x2="0" y2="5" stroke="var(--ink)" stroke-width="2"/></pattern></defs>`;
+  for(const t of ticks)s+=`<line x1="${pl}" x2="${W-8}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)" stroke-width="1"/><text x="${pl-6}" y="${y(t)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${short(t)}</text>`;
+  rows.forEach((r,i)=>{
+    const cx=pl+step*i+step/2;
+    const b1=y(Math.max(r.net,0)),b2=y(Math.max(r.result,0)),b2b=y(Math.min(r.result,0));
+    s+=`<rect x="${cx-bw-1}" y="${b1}" width="${bw}" height="${Math.max(0,y(0)-b1)}" fill="var(--bar2)" rx="2"><title>${monthName(r.m)}: виручка ${money(r.net)}</title></rect>`;
+    s+=`<rect x="${cx+1}" y="${b2}" width="${bw}" height="${Math.max(0,b2b-b2)}" fill="${r.result<0?"url(#hatch)":"var(--ink)"}" stroke="var(--ink)" stroke-width="${r.result<0?1:0}" rx="2"><title>${monthName(r.m)}: чистий результат ${money(r.result)}</title></rect>`;
+    s+=`<text x="${cx}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--muted)">${MONTHS[+r.m.slice(5)-1].slice(0,3)}</text>`;
+  });
+  return s+`</svg><div class="legend"><span><i style="background:var(--bar2)"></i>Виручка</span><span><i style="background:var(--ink)"></i>Чистий результат</span><span><i style="background:repeating-linear-gradient(45deg,var(--ink) 0 2px,var(--surface) 2px 4px);outline:1px solid var(--ink)"></i>Збиток</span></div>`;
+}
+/* ---------- таблиці: сортування й вибір колонок, стан пам'ятається в браузері ---------- */
+const TBL={};
+function tblState(id){
+  ui.tbl=ui.tbl||{};
+  if(!ui.tbl[id]){let s=null;try{s=JSON.parse(localStorage.getItem("tbl:"+id)||"null")}catch(_){}ui.tbl[id]=s||{hidden:null,sort:null}}
+  return ui.tbl[id];
+}
+function saveTbl(id){try{localStorage.setItem("tbl:"+id,JSON.stringify(ui.tbl[id]))}catch(_){}}
+function hiddenOf(id){const st=tblState(id);return new Set(st.hidden??TBL[id].cols.filter(c=>c.off).map(c=>c.key))}
+const cellFmt={money:v=>money(v),qty:v=>qty(v),pct:v=>pct(v),date:v=>fmtDate(v),text:v=>esc(v)};
+const isNumCol=c=>c.f&&c.f!=="text"&&c.f!=="date";
+const demoChip=r=>r.demo?' <span class="chip demo">приклад</span>':"";
+function table(id,kind,cols,rows,opt={}){
+  TBL[id]={cols};
+  const st=tblState(id),hid=hiddenOf(id),vis=cols.filter(c=>!hid.has(c.key));
+  const sort=st.sort||opt.sort;
+  if(sort){const c=cols.find(c=>c.key===sort.key);if(c){const d=sort.dir==="asc"?1:-1;rows=[...rows].sort((a,b)=>{
+    const x=c.v(a),y=c.v(b);
+    if(!isNumCol(c))return String(x??"").localeCompare(String(y??""),"uk",{numeric:true})*d;
+    const nx=isFinite(x)?+x:-Infinity,ny=isFinite(y)?+y:-Infinity;return(nx===ny?0:nx<ny?-1:1)*d})}}
+  const th=c=>{const on=sort&&sort.key===c.key;
+    return `<th class="${isNumCol(c)?"n":""}" aria-sort="${on?(sort.dir==="asc"?"ascending":"descending"):"none"}"><button class="sortb" data-sort="${id}" data-key="${c.key}" title="Сортувати">${esc(c.label)}<span class="arr">${on?(sort.dir==="asc"?"↑":"↓"):"↕"}</span></button></th>`};
+  const td=(c,r)=>{const v=c.v(r);return `<td class="${isNumCol(c)?"n":""}${c.sign&&v<0?" neg":""}">${c.h?c.h(r):cellFmt[c.f||"text"](v)}</td>`};
+  let foot="";
+  if(vis.some(c=>c.total))foot=`<tfoot><tr>${vis.map((c,i)=>{
+    if(c.total){const s=rows.reduce((a,r)=>a+(+c.v(r)||0),0);return `<td class="n${c.sign&&s<0?" neg":""}">${cellFmt[c.f](s)}</td>`}
+    return `<td>${i===0?`Разом · ${rows.length}`:""}</td>`}).join("")}</tr></tfoot>`;
+  return `<div class="tw"><table class="t"><thead><tr>${vis.map(th).join("")}</tr></thead><tbody>${rows.map(r=>`<tr class="click" tabindex="0" data-edit="${kind}" data-id="${r.id}">${vis.map(c=>td(c,r)).join("")}</tr>`).join("")}</tbody>${foot}</table></div>`;
+}
+function colsBtn(id){
+  if(!TBL[id])return "";
+  const cols=TBL[id].cols,hid=hiddenOf(id),open=ui.colMenu===id;
+  return `<div class="cm"><button class="btn" data-colmenu="${id}" aria-expanded="${open}" aria-haspopup="true">Колонки <span class="mut">${cols.length-hid.size}/${cols.length}</span></button>${open?`<div class="cm-pop">${cols.map(c=>`<label><input type="checkbox" data-col="${id}" data-key="${c.key}"${hid.has(c.key)?"":" checked"}>${esc(c.label)}</label>`).join("")}<div class="cm-f"><button class="btn ghost" data-colreset="${id}">Як за замовчуванням</button><button class="btn ghost" data-colall="${id}">Усі</button></div></div>`:""}</div>`;
+}
+function listView(title,id,kind,cols,rows,{search,period:per=true,add,empty,sort,total}){
+  const tbl=rows.length?table(id,kind,cols,rows,{sort}):"";
+  if(!rows.length)TBL[id]={cols};
+  return `<div class="bar"><h2 class="grow">${title}${total!=null?` <span class="count">· ${total}</span>`:""}</h2>${searchBox(id,search)}${per?periodSelect():""}${colsBtn(id)}${add||""}</div>${tbl||emptyBox(...empty)}`;
+}
+
+function vOrders(){
+  const rows=S.orders.filter(o=>inPeriod(o.date)&&match("orders",[o.number,o.channel,o.note,...(o.lines||[]).map(l=>l.kind==="kit"?kitName(l.refId):name(l.refId))].join(" ")));
+  const items=o=>(o.lines||[]).map(l=>`${esc(l.kind==="kit"?kitName(l.refId)+" (набір)":name(l.refId))} × ${qty(l.qty)}${num(l.returned)?` <span class="chip low">повернено ${qty(l.returned)}</span>`:""}`).join("<br>");
+  const cols=[
+    {key:"date",label:"Дата",f:"date",v:o=>o.date||""},
+    {key:"number",label:"Замовлення",v:o=>o.number||"",h:o=>`<span class="sku">${esc(o.number||"—")}</span>${demoChip(o)}`},
+    {key:"channel",label:"Канал",v:o=>o.channel||""},
+    {key:"items",label:"Позиції",v:o=>(o.lines||[]).map(l=>l.kind==="kit"?kitName(l.refId):name(l.refId)).join(", "),h:items},
+    {key:"units",label:"Штук",f:"qty",total:true,off:true,v:o=>(o.lines||[]).reduce((s,l)=>s+num(l.qty),0)},
+    {key:"net",label:"Виручка",f:"money",total:true,v:o=>o._net},
+    {key:"refund",label:"Повернено грошей",f:"money",total:true,off:true,v:o=>o._refund},
+    {key:"cogs",label:"Собівартість",f:"money",total:true,v:o=>o._cogs},
+    {key:"commission",label:"Комісія",f:"money",total:true,v:o=>num(o.commission)},
+    {key:"ship",label:"Доставка магазину",f:"money",total:true,v:o=>num(o.shipCost)},
+    {key:"profit",label:"Прибуток",f:"money",total:true,sign:true,v:o=>o._profit},
+    {key:"margin",label:"Маржа",f:"pct",v:o=>o._net?o._profit/o._net*100:NaN},
+    {key:"note",label:"Примітка",off:true,v:o=>o.note||""},
+  ];
+  return listView("Продажі","orders","order",cols,rows,{search:"Пошук: № замовлення, SKU, канал",add:addBtn("+ Продаж","order"),total:rows.length,sort:{key:"date",dir:"desc"},
+    empty:[S.products.length?(S.orders.length?"Нічого не знайдено":"Продажів ще немає"):"Спершу додайте товари","Кожне замовлення — один запис, у ньому можуть бути і товари, і набори."]});
+}
+function vPurchases(){
+  const rows=S.purchases.filter(b=>inPeriod(b.date)&&match("purchases",[b.batch,b.supplier,b.note,...(b.lines||[]).map(l=>name(l.productId))].join(" ")));
+  const goods=b=>(b.lines||[]).reduce((s,l)=>s+num(l.qty)*num(l.price),0);
+  const cols=[
+    {key:"date",label:"Дата",f:"date",v:b=>b.date||""},
+    {key:"batch",label:"Партія",v:b=>b.batch||"",h:b=>`<span class="sku">${esc(b.batch||"—")}</span>${demoChip(b)}`},
+    {key:"supplier",label:"Постачальник",v:b=>b.supplier||""},
+    {key:"items",label:"Товари",v:b=>(b.lines||[]).map(l=>name(l.productId)).join(", "),h:b=>(b.lines||[]).map(l=>`${esc(name(l.productId))} × ${qty(l.qty)} <span class="mut">по ${money(l.price)}</span>`).join("<br>")},
+    {key:"qty",label:"Штук",f:"qty",total:true,v:b=>b._qty},
+    {key:"goods",label:"Сума товару",f:"money",total:true,v:goods},
+    {key:"extra",label:"Дод. витрати",f:"money",total:true,off:true,v:b=>(b.lines||[]).reduce((s,l)=>s+num(l.extra),0)},
+    {key:"shipping",label:"Доставка",f:"money",total:true,v:b=>num(b.shipping)},
+    {key:"total",label:"Разом",f:"money",total:true,v:b=>b._total},
+    {key:"note",label:"Примітка",off:true,v:b=>b.note||""},
+  ];
+  return listView("Закупівлі","purchases","purchase",cols,rows,{search:"Пошук: партія, постачальник, SKU",add:addBtn("+ Закупівля","purchase"),total:rows.length,sort:{key:"date",dir:"desc"},
+    empty:[S.products.length?(S.purchases.length?"Нічого не знайдено":"Закупівель ще немає"):"Спершу додайте товари","Одна закупівля — одна партія від постачальника з усіма товарами та доставкою."]});
+}
+function vProducts(){
+  const rows=Object.values(C.P).filter(p=>(!ui.lowOnly||p.status!=="ok")&&match("products",[p.sku,p.name,p.category,p.supplier].join(" ")));
+  const st={ok:"В наявності",low:"Докупити",out:"Немає"},rank={out:0,low:1,ok:2};
+  const cols=[
+    {key:"sku",label:"SKU",v:p=>p.sku||"",h:p=>`<span class="sku">${esc(p.sku)}</span>${demoChip(p)}`},
+    {key:"name",label:"Назва",v:p=>p.name||""},
+    {key:"category",label:"Категорія",v:p=>p.category||""},
+    {key:"supplier",label:"Постачальник",off:true,v:p=>p.supplier||""},
+    {key:"bought",label:"Закуплено",f:"qty",total:true,v:p=>p.bought},
+    {key:"sold",label:"Продано",f:"qty",total:true,v:p=>p.sold,h:p=>qty(p.sold)+(p.sold!==p.soldDirect?`<span class="sub">${qty(p.sold-p.soldDirect)} у наборах</span>`:"")},
+    {key:"returned",label:"Повернено",f:"qty",total:true,off:true,v:p=>p.returned},
+    {key:"stock",label:"Залишок",f:"qty",total:true,v:p=>p.stock,h:p=>`<b>${qty(p.stock)}</b>`},
+    {key:"min",label:"Мін. залишок",f:"qty",off:true,v:p=>num(p.minStock)},
+    {key:"avg",label:"Сер. собівартість",f:"money",v:p=>p.avg},
+    {key:"value",label:"Вартість залишку",f:"money",total:true,v:p=>p.value},
+    {key:"price",label:"Ціна продажу",f:"money",v:p=>num(p.price),h:p=>p.price?money(p.price):"—"},
+    {key:"markup",label:"Націнка",f:"pct",off:true,v:p=>p.price&&p.avg?(p.price/p.avg-1)*100:NaN},
+    {key:"revenue",label:"Виручка",f:"money",total:true,off:true,v:p=>p.revenue},
+    {key:"profit",label:"Прибуток",f:"money",total:true,sign:true,v:p=>p.profit},
+    // статус сортується за важливістю, а не за алфавітом
+    {key:"status",label:"Статус",v:p=>String(rank[p.status]),h:p=>`<span class="chip ${p.status}">${st[p.status]}</span>`},
+  ];
+  const low=`<label style="display:flex;gap:6px;align-items:center;font-size:14px;white-space:nowrap"><input type="checkbox" id="lowOnly" style="width:16px;height:16px;accent-color:var(--ink)"${ui.lowOnly?" checked":""}>Лише до дозакупівлі</label>`;
+  return listView("Товари","products","product",cols,rows,{search:"Пошук: SKU, назва, категорія",period:false,add:low+addBtn("+ Товар","product"),total:rows.length,sort:{key:"sku",dir:"asc"},
+    empty:[S.products.length?"Нічого не знайдено":"Товарів ще немає","Додайте товар з унікальним SKU, наприклад CAT-001. Його ви обиратимете в закупівлях і продажах."]})
+    +(rows.length?`<p class="hint" style="margin-top:10px">«Прибуток» — від продажу товару окремо; продажі у складі наборів рахуються на вкладці «Набори». Натисніть на заголовок колонки, щоб відсортувати.</p>`:"");
+}
+function vKits(){
+  const rows=Object.values(C.K).filter(k=>match("kits",[k.sku,k.name].join(" ")));
+  const cols=[
+    {key:"sku",label:"SKU",v:k=>k.sku||"",h:k=>`<span class="sku">${esc(k.sku)}</span>${demoChip(k)}`},
+    {key:"name",label:"Назва",v:k=>k.name||""},
+    {key:"comp",label:"Склад",v:k=>(k.components||[]).length,h:k=>(k.components||[]).map(c=>`${esc(name(c.productId))} × ${qty(c.qty)}`).join("<br>")},
+    {key:"cost",label:"Собівартість",f:"money",v:k=>k.cost},
+    {key:"price",label:"Ціна",f:"money",v:k=>num(k.price),h:k=>k.price?money(k.price):"—"},
+    {key:"margin",label:"Маржа",f:"pct",v:k=>k.price&&k.cost?(1-k.cost/k.price)*100:NaN},
+    {key:"build",label:"Можна зібрати",f:"qty",v:k=>k.canBuild,h:k=>`<span class="chip ${k.canBuild>0?"ok":"out"}">${qty(k.canBuild)} шт.</span>`},
+    {key:"sold",label:"Продано",f:"qty",total:true,v:k=>k.sold},
+    {key:"revenue",label:"Виручка",f:"money",total:true,off:true,v:k=>k.revenue},
+    {key:"profit",label:"Прибуток",f:"money",total:true,sign:true,v:k=>k.profit},
+  ];
+  return listView("Набори","kits","kit",cols,rows,{search:"Пошук набору",period:false,add:addBtn("+ Набір","kit"),total:rows.length,sort:{key:"sku",dir:"asc"},
+    empty:[S.kits.length?"Нічого не знайдено":"Наборів ще немає","Набір складається з товарів. При продажі набору всі його компоненти списуються зі складу автоматично."]});
+}
+function vExpenses(){
+  const rows=S.expenses.filter(e=>inPeriod(e.date)&&match("expenses",[e.category,e.note].join(" ")));
+  const byCat={};for(const e of rows)byCat[e.category||"Інше"]=(byCat[e.category||"Інше"]||0)+num(e.amount);
+  const total=rows.reduce((s,e)=>s+num(e.amount),0);
+  const cols=[
+    {key:"date",label:"Дата",f:"date",v:e=>e.date||""},
+    {key:"category",label:"Категорія",v:e=>e.category||"",h:e=>esc(e.category)+demoChip(e)},
+    {key:"note",label:"Коментар",v:e=>e.note||"",h:e=>`<span class="mut">${esc(e.note)}</span>`},
+    {key:"amount",label:"Сума",f:"money",total:true,v:e=>num(e.amount)},
+  ];
+  const tbl=rows.length?table("expenses","expense",cols,rows,{sort:{key:"date",dir:"desc"}}):(TBL.expenses={cols},"");
+  return `<div class="bar"><h2 class="grow">Витрати${rows.length?` <span class="count">· ${rows.length}</span>`:""}</h2>${searchBox("expenses","Пошук: категорія, коментар")}${periodSelect()}${colsBtn("expenses")}${addBtn("+ Витрата","expense")}</div>
+  ${rows.length?`<div class="grid2">${tbl}<div class="panel" style="align-self:start"><h3>За категоріями</h3><table class="pl">${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${esc(c)}</td><td class="num">${money(v)}</td><td class="num mut" style="width:56px">${pct(v/total*100)}</td></tr>`).join("")}</table></div></div>`
+  :emptyBox(S.expenses.length?"Нічого не знайдено":"Витрат ще немає","Сюди — реклама, сервіси, оренда, банківські комісії. Доставку від постачальника вносьте в закупівлю, а не сюди.")}
+  <div class="bar" style="margin-top:22px"><span class="grow"></span>${dl?`<button class="btn" id="export">Завантажити все в Excel</button>`:""}</div>`;
+}
+function emptyBox(t,s){return `<div class="tw"><div class="empty"><b>${esc(t)}</b>${esc(s)}</div></div>`}
+
+function bindMain(){
+  const m=document.getElementById("main");
+  m.querySelectorAll("[data-new]").forEach(b=>b.onclick=()=>openForm(b.dataset.new));
+  m.querySelectorAll("[data-edit]").forEach(r=>{r.onclick=()=>openForm(r.dataset.edit,r.dataset.id);r.onkeydown=e=>{if(e.key==="Enter")r.onclick()}});
+  m.querySelectorAll("[data-sort]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.sort,key=b.dataset.key,st=tblState(id),col=TBL[id].cols.find(c=>c.key===key);
+    const cur=st.sort;
+    st.sort=cur&&cur.key===key?{key,dir:cur.dir==="asc"?"desc":"asc"}:{key,dir:isNumCol(col)||col.f==="date"?"desc":"asc"};
+    saveTbl(id);render();document.querySelector(`[data-sort="${id}"][data-key="${key}"]`)?.focus();
+  });
+  m.querySelectorAll("[data-colmenu]").forEach(b=>b.onclick=e=>{e.stopPropagation();ui.colMenu=ui.colMenu===b.dataset.colmenu?null:b.dataset.colmenu;render()});
+  m.querySelectorAll("[data-col]").forEach(i=>i.onchange=()=>{
+    const id=i.dataset.col,st=tblState(id),hid=hiddenOf(id);
+    if(i.checked)hid.delete(i.dataset.key);else hid.add(i.dataset.key);
+    if(hid.size>=TBL[id].cols.length){i.checked=true;return} // хоча б одна колонка лишається
+    st.hidden=[...hid];saveTbl(id);render();
+    document.querySelector(`[data-col="${id}"][data-key="${i.dataset.key}"]`)?.focus();
+  });
+  m.querySelectorAll("[data-colreset]").forEach(b=>b.onclick=()=>{const id=b.dataset.colreset;tblState(id).hidden=null;saveTbl(id);render()});
+  m.querySelectorAll("[data-colall]").forEach(b=>b.onclick=()=>{const id=b.dataset.colall;tblState(id).hidden=[];saveTbl(id);render()});
+  const p=document.getElementById("period");if(p)p.onchange=()=>{period=p.value;render()};
+  m.querySelectorAll("[data-q]").forEach(i=>i.oninput=()=>{ui.q[i.dataset.q]=i.value;const pos=i.selectionStart;render();const n=document.getElementById(i.id);if(n){n.focus();n.setSelectionRange(pos,pos)}});
+  const lo=document.getElementById("lowOnly");if(lo)lo.onchange=()=>{ui.lowOnly=lo.checked;render()};
+  const cd=document.getElementById("clearDemo");if(cd)cd.onclick=async()=>{
+    if(cd.dataset.sure!=="1"){cd.dataset.sure="1";cd.textContent="Точно видалити всі приклади?";cd.classList.add("danger");return}
+    cd.disabled=true;cd.textContent="Видаляю…";
+    try{for(const c of COLS)for(const d of S[c].filter(x=>x.demo))await db.collection(c).doc(d.id).delete()}catch(e){cd.textContent="Не вдалося видалити, спробуйте ще раз";cd.disabled=false}
+  };
+  const ex=document.getElementById("export");if(ex)ex.onclick=exportXlsx;
+}
+document.addEventListener("click",e=>{if(ui.colMenu&&!e.target.closest(".cm")){ui.colMenu=null;render()}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ui.colMenu&&!F){const id=ui.colMenu;ui.colMenu=null;render();document.querySelector(`[data-colmenu="${id}"]`)?.focus()}});
+document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(b){tab=b.dataset.tab;ui.colMenu=null;try{localStorage.setItem("tab",tab)}catch(_){};render();window.scrollTo(0,0)}};
+
+/* ---------- форми ---------- */
+let F=null; // {kind,id,data}
+const blankLine={product:{},order:{kind:"product",qty:1,price:"",discount:"",returned:"",refund:""},purchase:{qty:1,price:"",extra:""},kit:{qty:1}};
+function nextNumber(col,field,prefix){
+  let max=0;for(const d of S[col]){const m=String(d[field]||"").match(/(\d+)\s*$/);if(m)max=Math.max(max,+m[1])}
+  return prefix+String(max+1).padStart(3,"0");
+}
+function openForm(kind,id){
+  const col={product:"products",kit:"kits",purchase:"purchases",order:"orders",expense:"expenses"}[kind];
+  const ex=id?S[col].find(d=>d.id===id):null;
+  let data=ex?JSON.parse(JSON.stringify(ex)):null;
+  if(!data)data={
+    product:{sku:"",name:"",category:"",supplier:"",minStock:"",price:""},
+    kit:{sku:"",name:"",price:"",components:[{...blankLine.kit}]},
+    purchase:{date:today(),batch:nextNumber("purchases","batch","ZAK-"),supplier:"",shipping:"",note:"",lines:[{...blankLine.purchase}]},
+    order:{date:today(),number:nextNumber("orders","number","ORD-"),channel:"",note:"",commission:"",shipCost:"",lines:[{...blankLine.order}]},
+    expense:{date:today(),category:"",amount:"",note:""}
+  }[kind];
+  for(const k of Object.keys(data))if(k.startsWith("_"))delete data[k];
+  F={kind,col,id:ex?ex.id:null,data,err:""};
+  drawSheet();
+}
+function closeSheet(){F=null;document.getElementById("sheetRoot").innerHTML=""}
+const titles={product:["Новий товар","Товар"],kit:["Новий набір","Набір"],purchase:["Нова закупівля","Закупівля"],order:["Новий продаж","Продаж"],expense:["Нова витрата","Витрата"]};
+function fld(key,label,type="text",extra=""){return `<label class="f">${label}<input id="f_${key}" data-k="${key}" type="${type}" value="${esc(F.data[key]??"")}" ${type==="number"?'inputmode="decimal" step="any"':""} ${extra}></label>`}
+function lineFld(i,key,label,type="number",extra=""){const v=(F.data[F.kind==="kit"?"components":"lines"][i]||{})[key];return `<label class="f">${label}<input id="l_${i}_${key}" data-l="${i}" data-lk="${key}" type="${type}" value="${esc(v??"")}" ${type==="number"?'inputmode="decimal" step="any" min="0"':""} ${extra}></label>`}
+function productOptions(sel){return `<option value="">— оберіть товар —</option>`+[...S.products].sort((a,b)=>(a.sku||"").localeCompare(b.sku||"","uk")).map(p=>`<option value="${p.id}"${p.id===sel?" selected":""}>${esc(p.sku)} — ${esc(p.name)}</option>`).join("")}
+function dlist(id,vals){return `<datalist id="${id}">${[...new Set(vals.filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join("")}</datalist>`}
+
+function drawSheet(){
+  const d=F.data,k=F.kind;let body="";
+  if(k==="product")body=`<div class="fg">${fld("sku","SKU / артикул *","text",'autocomplete="off"')}${fld("name","Назва *")}</div>
+    <div class="fg">${fld("category","Категорія","text",'list="dl_cat"')}${fld("supplier","Постачальник / бренд","text",'list="dl_sup"')}</div>
+    <div class="fg">${fld("price","Ціна продажу, ₴","number")}${fld("minStock","Мін. залишок, шт.","number")}</div>
+    <p class="hint">Ціна продажу підставиться автоматично, коли ви додаєте товар у продаж. Коли залишок опуститься до мінімального, товар з'явиться у списку «Треба докупити».</p>
+    ${dlist("dl_cat",S.products.map(p=>p.category))}${dlist("dl_sup",S.products.map(p=>p.supplier).concat(S.purchases.map(b=>b.supplier)))}`;
+  if(k==="expense")body=`<div class="fg">${fld("date","Дата *","date")}${fld("amount","Сума, ₴ *","number")}</div>
+    ${fld("category","Категорія *","text",'list="dl_ecat"')}${fld("note","Коментар / пов'язане замовлення")}
+    ${dlist("dl_ecat",EXP_CATS.concat(S.expenses.map(e=>e.category)))}
+    <p class="hint">Доставку від постачальника вносьте в закупівлю: вона піде в собівартість товару. Доставку до покупця — в продаж.</p>`;
+  if(k==="kit"){
+    body=`<div class="fg">${fld("sku","SKU набору *")}${fld("name","Назва набору *")}${fld("price","Ціна продажу, ₴","number")}</div>
+    <h3 style="margin:4px 0 -6px">Склад набору</h3><div class="lines">${d.components.map((c,i)=>`<div class="line">
+      <label class="f wide">Товар<select data-l="${i}" data-lk="productId" id="l_${i}_productId">${productOptions(c.productId)}</select></label>
+      ${lineFld(i,"qty","Кількість у наборі")}<button class="btn ghost x" data-del="${i}" aria-label="Прибрати компонент">Прибрати</button></div>`).join("")}</div>
+    <div><button class="btn" id="addLine">+ Компонент</button></div>
+    ${(()=>{const cost=d.components.reduce((s,c)=>s+num(c.qty)*(C.P[c.productId]?.avg||0),0);return `<div class="calc"><span>Собівартість зараз: <b>${money(cost)}</b></span>${num(d.price)?`<span>Маржа: <b>${pct((1-cost/num(d.price))*100)}</b></span>`:""}</div>`})()}
+    ${F.id?`<p class="hint">Зміна складу не перерахує вже внесені продажі: кожен продаж зберігає склад набору на момент продажу.</p>`:""}`;
+  }
+  if(k==="purchase"){
+    const goods=d.lines.reduce((s,l)=>s+num(l.qty)*num(l.price),0),tq=d.lines.reduce((s,l)=>s+num(l.qty),0);
+    body=`<div class="fg">${fld("date","Дата *","date")}${fld("batch","№ партії / замовлення")}${fld("supplier","Постачальник","text",'list="dl_sup"')}</div>
+    <h3 style="margin:4px 0 -6px">Товари в партії</h3><div class="lines">${d.lines.map((l,i)=>{
+      const base=num(l.qty)*num(l.price),share=goods>0?base/goods:(tq?num(l.qty)/tq:0),cost=base+num(l.extra)+num(d.shipping)*share;
+      return `<div class="line"><label class="f wide">Товар<select data-l="${i}" data-lk="productId" id="l_${i}_productId">${productOptions(l.productId)}</select></label>
+      ${lineFld(i,"qty","Кількість, шт.")}${lineFld(i,"price","Ціна за шт., ₴")}${lineFld(i,"extra","Дод. витрати на цей товар, ₴")}
+      <div class="hint">Собівартість 1 шт.:<br><b>${num(l.qty)?money(cost/num(l.qty)):"—"}</b></div><button class="btn ghost x" data-del="${i}">Прибрати</button></div>`}).join("")}</div>
+    <div><button class="btn" id="addLine">+ Товар</button></div>
+    <div class="fg">${fld("shipping","Доставка всієї партії, ₴","number")}${fld("note","Примітка")}</div>
+    <div class="calc"><span>Товари: <b>${money(goods)}</b></span><span>Разом із доставкою: <b>${money(goods+num(d.shipping)+d.lines.reduce((s,l)=>s+num(l.extra),0))}</b></span><span>${qty(tq)} шт.</span></div>
+    <p class="hint">Доставка ділиться між товарами пропорційно їхній вартості й входить у собівартість.</p>
+    ${dlist("dl_sup",S.products.map(p=>p.supplier).concat(S.purchases.map(b=>b.supplier)))}`;
+  }
+  if(k==="order"){
+    let rev=0,cogs=0,refund=0;
+    const linesH=d.lines.map((l,i)=>{
+      const kit=l.kind==="kit";
+      const comps=kit?((F.id&&l.components)||C.K[l.refId]?.components||[]):[{productId:l.refId,qty:1}];
+      const uc=comps.reduce((s,c)=>s+num(c.qty)*C.avgAt(c.productId,d.date||today()),0);
+      const q=num(l.qty),r=Math.min(num(l.returned),q);
+      rev+=q*num(l.price)-num(l.discount);refund+=num(l.refund);cogs+=uc*(q-r);
+      // наявність: поточний залишок + те, що вже списав цей самий продаж (при редагуванні)
+      let avail=null;
+      if(l.refId){
+        const orig=F.id?S.orders.find(o=>o.id===F.id):null;
+        const used=pid=>orig?(orig.lines||[]).reduce((s,ol)=>{const cs=ol.kind==="kit"?(ol.components||[]):[{productId:ol.refId,qty:1}];return s+cs.filter(c=>c.productId===pid).reduce((a,c)=>a+num(c.qty)*(num(ol.qty)-Math.min(num(ol.returned),num(ol.qty))),0)},0):0;
+        avail=Math.min(...comps.map(c=>num(c.qty)?Math.floor(((C.P[c.productId]?.stock||0)+used(c.productId))/num(c.qty)):Infinity));
+      }
+      const val=l.refId?(kit?"k:":"p:")+l.refId:"";
+      return `<div class="line"><label class="f wide">Товар або набір<select data-l="${i}" data-lk="ref" id="l_${i}_ref"><option value="">— оберіть —</option>
+        <optgroup label="Товари">${[...S.products].sort((a,b)=>(a.sku||"").localeCompare(b.sku||"","uk")).map(p=>`<option value="p:${p.id}"${val==="p:"+p.id?" selected":""}>${esc(p.sku)} — ${esc(p.name)}</option>`).join("")}</optgroup>
+        ${S.kits.length?`<optgroup label="Набори">${S.kits.map(x=>`<option value="k:${x.id}"${val==="k:"+x.id?" selected":""}>${esc(x.sku)} — ${esc(x.name)}</option>`).join("")}</optgroup>`:""}</select></label>
+        ${lineFld(i,"qty","Кількість")}${lineFld(i,"price","Ціна за шт., ₴")}${lineFld(i,"discount","Знижка на рядок, ₴")}
+        ${lineFld(i,"returned","Повернуто, шт.")}${lineFld(i,"refund","Повернуто грошей, ₴")}
+        <button class="btn ghost x" data-del="${i}">Прибрати</button>
+        ${avail!==null&&isFinite(avail)&&q>avail?`<p class="hint w wide">На складі вистачає лише на ${qty(Math.max(avail,0))} шт. Перевірте, чи внесена закупівля.</p>`:""}
+        ${kit&&F.id&&l.components?`<p class="hint wide">Склад набору збережено на момент продажу.</p>`:""}</div>`;
+    }).join("");
+    const extra=num(d.commission)+num(d.shipCost),profit=rev-refund-cogs-extra;
+    body=`<div class="fg">${fld("date","Дата *","date")}${fld("number","№ замовлення")}${fld("channel","Канал продажу","text",'list="dl_ch" placeholder="Instagram, Rozetka, сайт…"')}</div>
+    <h3 style="margin:4px 0 -6px">Позиції</h3><div class="lines">${linesH}</div>
+    <div><button class="btn" id="addLine">+ Позиція</button></div>
+    <div class="fg">${fld("commission","Комісія майданчика / еквайринг, ₴","number")}${fld("shipCost","Доставка й пакування за рахунок магазину, ₴","number")}</div>
+    ${fld("note","Покупець / примітка")}
+    <div class="calc"><span>Виручка: <b>${money(rev-refund)}</b></span><span>Собівартість: <b>${money(cogs)}</b></span><span>Прибуток: <b class="${signCls(profit)}">${money(profit)}</b></span>${rev>0?`<span>Маржа: <b>${pct(profit/(rev-refund||1)*100)}</b></span>`:""}</div>
+    ${dlist("dl_ch",S.orders.map(o=>o.channel))}`;
+  }
+  const t=titles[k];
+  const root=document.getElementById("sheetRoot");
+  const prevFocus=document.activeElement&&document.activeElement.id,selS=document.activeElement&&document.activeElement.selectionStart;
+  const scroll=root.querySelector(".sheet-b")?.scrollTop||0;
+  root.innerHTML=`<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="${t[F.id?1:0]}">
+    <div class="sheet-h"><h2>${t[F.id?1:0]}</h2><button class="btn ghost" id="closeS" aria-label="Закрити">✕</button></div>
+    <form class="sheet-b" id="form" novalidate>${body}${F.err?`<p class="err">${esc(F.err)}</p>`:""}</form>
+    <div class="sheet-f">${F.id&&canWrite?`<button class="btn danger" id="delS">Видалити</button>`:""}<span class="sp"></span><button class="btn" id="cancelS">Скасувати</button>${canWrite?`<button class="btn primary" id="saveS">Зберегти</button>`:""}</div>
+  </div></div>`;
+  root.querySelector(".sheet-b").scrollTop=scroll;
+  if(prevFocus){const n=document.getElementById(prevFocus);if(n){n.focus();try{if(selS!=null)n.setSelectionRange(selS,selS)}catch(_){}}}
+  else{const first=root.querySelector("input,select");if(first&&!F.id)first.focus()}
+  bindSheet();
+}
+function bindSheet(){
+  const root=document.getElementById("sheetRoot"),d=F.data,arr=F.kind==="kit"?"components":"lines";
+  root.querySelector("#scrim").onclick=e=>{if(e.target.id==="scrim")closeSheet()};
+  root.querySelector("#closeS").onclick=closeSheet;root.querySelector("#cancelS").onclick=closeSheet;
+  root.querySelector("#form").onsubmit=e=>{e.preventDefault();save()};
+  root.querySelectorAll("[data-k]").forEach(i=>i.oninput=()=>{d[i.dataset.k]=i.value;if(i.type==="number"||i.type==="date")drawSheet()});
+  root.querySelectorAll("[data-l]").forEach(i=>{
+    const ev=i.tagName==="SELECT"?"onchange":"oninput";
+    i[ev]=()=>{
+      const l=d[arr][+i.dataset.l];
+      if(i.dataset.lk==="ref"){
+        const[kd,id]=i.value.split(":");l.kind=kd==="k"?"kit":"product";l.refId=id||"";delete l.components;
+        if(!num(l.price)){const src=kd==="k"?S.kits.find(x=>x.id===id):S.products.find(x=>x.id===id);if(src&&num(src.price))l.price=src.price}
+      }else l[i.dataset.lk]=i.value;
+      drawSheet();
+    };
+  });
+  root.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{d[arr].splice(+b.dataset.del,1);if(!d[arr].length)d[arr].push({...blankLine[F.kind]});drawSheet()});
+  const al=root.querySelector("#addLine");if(al)al.onclick=()=>{d[arr].push({...blankLine[F.kind]});drawSheet()};
+  const del=root.querySelector("#delS");if(del)del.onclick=async()=>{
+    if(F.kind==="product"&&usedProduct(F.id)){F.err="Цей товар є в закупівлях, продажах або наборах. Спершу видаліть ці записи, інакше розрахунки зламаються.";drawSheet();return}
+    if(del.dataset.sure!=="1"){del.dataset.sure="1";del.textContent="Точно видалити?";return}
+    del.disabled=true;
+    try{await db.collection(F.col).doc(F.id).delete();closeSheet()}catch(e){F.err="Не вдалося видалити: "+(e.message||e.code);drawSheet()}
+  };
+  const sv=root.querySelector("#saveS");if(sv)sv.onclick=save;
+  root.onkeydown=e=>{if(e.key==="Escape")closeSheet()};
+}
+function usedProduct(pid){
+  return S.purchases.some(b=>(b.lines||[]).some(l=>l.productId===pid))||S.orders.some(o=>(o.lines||[]).some(l=>l.refId===pid||(l.components||[]).some(c=>c.productId===pid)))||S.kits.some(k=>(k.components||[]).some(c=>c.productId===pid));
+}
+async function save(){
+  const d=JSON.parse(JSON.stringify(F.data)),k=F.kind;let err="";
+  const N=["minStock","price","amount","shipping","commission","shipCost"];
+  for(const x of N)if(x in d)d[x]=num(d[x]);
+  if(k==="product"){
+    d.sku=(d.sku||"").trim();d.name=(d.name||"").trim();
+    if(!d.sku||!d.name)err="Вкажіть SKU і назву.";
+    else if(S.products.some(p=>p.id!==F.id&&(p.sku||"").toLowerCase()===d.sku.toLowerCase()))err=`SKU ${d.sku} вже є. Кожен товар має мати свій SKU.`;
+  }
+  if(k==="kit"){
+    d.sku=(d.sku||"").trim();d.components=d.components.filter(c=>c.productId).map(c=>({productId:c.productId,qty:num(c.qty)}));
+    if(!d.sku||!d.name)err="Вкажіть SKU і назву набору.";else if(!d.components.length)err="Додайте хоча б один товар у набір.";
+    else if(d.components.some(c=>c.qty<=0))err="Кількість кожного компонента має бути більшою за нуль.";
+  }
+  if(k==="purchase"){
+    d.lines=d.lines.filter(l=>l.productId).map(l=>({productId:l.productId,qty:num(l.qty),price:num(l.price),extra:num(l.extra)}));
+    if(!d.date)err="Вкажіть дату.";else if(!d.lines.length)err="Оберіть хоча б один товар.";else if(d.lines.some(l=>l.qty<=0))err="Кількість має бути більшою за нуль.";
+  }
+  if(k==="order"){
+    d.lines=d.lines.filter(l=>l.refId).map(l=>{
+      const o={kind:l.kind||"product",refId:l.refId,qty:num(l.qty),price:num(l.price),discount:num(l.discount),returned:num(l.returned),refund:num(l.refund)};
+      if(o.kind==="kit")o.components=l.components||(S.kits.find(x=>x.id===l.refId)?.components||[]).map(c=>({productId:c.productId,qty:num(c.qty)}));
+      return o;
+    });
+    if(!d.date)err="Вкажіть дату.";else if(!d.lines.length)err="Оберіть хоча б один товар або набір.";
+    else if(d.lines.some(l=>l.qty<=0))err="Кількість має бути більшою за нуль.";
+    else if(d.lines.some(l=>l.returned>l.qty))err="Повернуто не може бути більше, ніж продано.";
+  }
+  if(k==="expense"&&(!d.date||!d.amount||!(d.category||"").trim()))err="Вкажіть дату, категорію і суму.";
+  if(err){F.err=err;drawSheet();return}
+  for(const x of Object.keys(d))if(x.startsWith("_")||x==="id")delete d[x];
+  if(F.id&&S[F.col].find(x=>x.id===F.id)?.demo)d.demo=true;
+  const btn=document.getElementById("saveS");if(btn){btn.disabled=true;btn.textContent="Зберігаю…"}
+  try{
+    const ref=F.id?db.collection(F.col).doc(F.id):db.collection(F.col).doc();
+    await ref.set(d);closeSheet();
+  }catch(e){
+    if(e.code==="invalid_argument"&&!F.id){canWrite=false;F.err="У вас немає прав змінювати дані. Попросіть власника дати доступ «Contributor» або вище."}
+    else F.err=e.code==="quota_exceeded"?"Базу заповнено. Видаліть старі записи.":"Не вдалося зберегти ("+(e.code||"помилка")+"). Спробуйте ще раз.";
+    drawSheet();
+  }
+}
+
+/* ---------- експорт ---------- */
+async function exportXlsx(){
+  const btn=document.getElementById("export");
+  if(typeof XLSX==="undefined"){btn.textContent="Бібліотека Excel не завантажилась";return}
+  const r2=v=>Math.round((+v||0)*100)/100,wb=XLSX.utils.book_new();
+  const add=(nm,rows)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),nm);
+  const t=periodTotals(()=>true);
+  add("Зведення",[["Виручка",t.net],["Собівартість проданого",t.cogs],["Комісії",t.commission],["Доставка за рахунок магазину",t.ship],["Прибуток від продажів",t.gross],["Інші витрати",t.expenses],["Чистий результат",t.result]].map(([a,b])=>({"Показник":a,"Сума, грн":r2(b)})));
+  add("Товари",Object.values(C.P).map(p=>({"SKU":p.sku,"Назва":p.name,"Категорія":p.category,"Постачальник":p.supplier,"Ціна продажу":r2(p.price),"Мін. залишок":p.minStock,"Закуплено":p.bought,"Продано":p.sold,"Повернено":p.returned,"Залишок":p.stock,"Сер. собівартість":r2(p.avg),"Вартість залишку":r2(p.value),"Прибуток":r2(p.profit)})));
+  add("Закупівлі",S.purchases.flatMap(b=>(b.lines||[]).map(l=>({"Дата":b.date,"Партія":b.batch,"Постачальник":b.supplier,"SKU":name(l.productId),"Кількість":l.qty,"Ціна":l.price,"Дод. витрати":l.extra,"Доставка партії":b.shipping,"Примітка":b.note}))));
+  add("Продажі",S.orders.flatMap(o=>(o.lines||[]).map((l,i)=>({"Дата":o.date,"Замовлення":o.number,"Канал":o.channel,"Тип":l.kind==="kit"?"набір":"товар","SKU":l.kind==="kit"?kitName(l.refId):name(l.refId),"Кількість":l.qty,"Ціна":l.price,"Знижка":l.discount,"Повернуто, шт":l.returned,"Повернуто, грн":l.refund,"Комісія (замовл.)":i?"":o.commission,"Доставка (замовл.)":i?"":o.shipCost,"Прибуток (замовл.)":i?"":r2(o._profit),"Примітка":o.note}))));
+  add("Набори",S.kits.flatMap(k=>(k.components||[]).map(c=>({"SKU набору":k.sku,"Назва":k.name,"Ціна":k.price,"Компонент":name(c.productId),"Кількість":c.qty}))));
+  add("Витрати",S.expenses.map(e=>({"Дата":e.date,"Категорія":e.category,"Сума":e.amount,"Коментар":e.note})));
+  const buf=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+  try{await dl.save({filename:`oblik-${today()}.xlsx`,data:buf})}catch(e){if(e.code!=="declined")btn.textContent="Не вдалося зберегти файл"}
+}
+
+/* ---------- запуск ---------- */
+function setSync(cls,txt){const s=document.getElementById("sync");s.className="sync "+cls;s.querySelector("span").textContent=txt}
+try{const t=localStorage.getItem("tab");if(t&&document.querySelector(`#tabs [data-tab="${t}"]`))tab=t}catch(_){}
+render();
+(async()=>{
+  if(!window.claude?.use){setSync("bad","Відкрийте сторінку в Claude, щоб зберігати дані");return}
+  db=await claude.use("db");
+  if(!db){setSync("bad","Сховище недоступне. Увійдіть у свій акаунт");return}
+  claude.use("downloads").then(d=>{dl=d;if(tab==="expenses")render()});
+  claude.use("user").then(async u=>{if(!u)return;const c=await u.can("data.write");if(c===false){canWrite=false;render()}});
+  const timer=setTimeout(()=>setSync("bad","Дані поки недоступні, перевірте з'єднання"),10000);
+  let pending=false;
+  for(const c of COLS){
+    db.collection(c).onSnapshot(snap=>{
+      S[c]=snap.docs.map(d=>({id:d.id,...d.data()}));
+      if(!snap.metadata.fromCache)firstLoad.add(c);
+      if(firstLoad.size===COLS.length){clearTimeout(timer);setSync("ok","Збережено")}
+      if(!pending){pending=true;requestAnimationFrame(()=>{pending=false;render();if(F)drawSheet()})}
+    },e=>{clearTimeout(timer);setSync("bad","Помилка зв'язку зі сховищем ("+e.code+")")});
+  }
+})();
+</script>
