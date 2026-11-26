@@ -223,7 +223,7 @@ th[aria-sort="ascending"] .arr,th[aria-sort="descending"] .arr{opacity:1}
 .icon-btn{all:unset;flex:none;cursor:pointer;width:var(--ctl);height:var(--ctl);border-radius:9px;display:grid;place-items:center;color:var(--muted);font-size:18px;line-height:1}
 .icon-btn:hover{background:var(--sunken);color:var(--bad)}
 .icon-btn:focus-visible{outline:2px solid var(--ink)}
-.line-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.line-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}
 .line-i{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;min-height:20px}
 .line-i b{color:var(--ink);font-variant-numeric:tabular-nums}
 .line-i .chip{font-size:12px}
@@ -235,6 +235,17 @@ th[aria-sort="ascending"] .arr,th[aria-sort="descending"] .arr{opacity:1}
 .calc b{font-size:17px;font-variant-numeric:tabular-nums}
 .hint{font-size:13px;color:var(--muted);margin:0;line-height:1.5}
 .err{color:var(--bad);background:var(--bad-bg);font-weight:600;font-size:14px;margin:0;padding:10px 14px;border-radius:10px}
+
+/* перемикач типу та створення запису з форми */
+.seg{display:flex;gap:3px;padding:3px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface)}
+.seg button{all:unset;box-sizing:border-box;flex:1;text-align:center;padding:8px 10px;border-radius:7px;font-weight:600;font-size:14px;color:var(--muted);cursor:pointer;line-height:1.25}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--btn);color:var(--btn-ink)}
+.seg button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.newp{display:flex;flex-direction:column;gap:10px}
+.newp .line-h b{flex:1;font-size:14px}
+.tb-2 .seg{flex:none}
+.tb-2 .seg button{padding:7px 12px;font-size:13.5px}
 
 /* підказки */
 .tip{position:fixed;z-index:100;left:0;top:0;max-width:min(300px,calc(100vw - 16px));background:var(--ink);color:var(--bg);font-size:13px;font-weight:500;line-height:1.45;letter-spacing:0;text-transform:none;padding:8px 11px;border-radius:8px;pointer-events:none;white-space:pre-line;box-shadow:0 6px 20px rgba(0,0,0,.22);opacity:0;transition:opacity .12s}
@@ -364,6 +375,7 @@ const MONTHS_GEN=["січня","лютого","березня","квітня","�
 const monthName=m=>{const[y,mm]=m.split("-");return MONTHS[+mm-1]+" "+y};
 const periodName=p=>p==="all"?"увесь час":p.length===4?p+" рік":monthName(p);
 const tone=v=>v<0?"bad":v>0?"good":"";
+const isMat=p=>p?.type==="material";
 // tipA — атрибут підказки для будь-якого елемента; ti — іконка ⓘ, яку можна натиснути на телефоні
 const tipA=t=>t?` data-tip="${esc(t)}"`:"";
 const ti=t=>`<span class="ti" tabindex="0" role="button" aria-label="Підказка" data-tip="${esc(t)}">i</span>`;
@@ -488,7 +500,7 @@ function periodSelect(){
     <optgroup label="Місяці">${months.map(m=>`<option value="${m}"${period===m?" selected":""}>${monthName(m)}</option>`).join("")}</optgroup>
   </select>`;
 }
-const ADD_TIPS={order:"Внести новий продаж: товари або набори, ціни, комісію",purchase:"Внести нову партію від постачальника з доставкою",product:"Додати товар у довідник",kit:"Створити набір з кількох товарів",expense:"Внести витрату: рекламу, сервіси, оренду"};
+const ADD_TIPS={order:"Внести новий продаж: товари або набори, ціни, комісію",purchase:"Внести нову партію від постачальника: товари або пакування, з доставкою",product:"Додати товар для продажу або матеріал (пакування)",kit:"Створити набір з кількох товарів",expense:"Внести витрату: рекламу, сервіси, оренду"};
 const addBtn=(label,kind)=>canWrite?`<button class="btn primary" data-new="${kind}"${tipA(ADD_TIPS[kind])}>+ ${label}</button>`:"";
 const searchBox=(k,ph)=>`<input type="search" class="search" id="q_${k}" data-q="${k}" placeholder="${ph}" value="${esc(ui.q[k]||"")}" aria-label="${ph}" autocomplete="off">`;
 const match=(k,txt)=>{const q=(ui.q[k]||"").trim().toLowerCase();return !q||txt.toLowerCase().includes(q)};
@@ -508,6 +520,7 @@ function vSummary(){
   }
   const top={};
   for(const o of S.orders)if(inPeriod(o.date))for(const l of o.lines||[]){
+    if(l.kind!=="kit"&&isMat(C.P[l.refId]))continue;
     const key=(l.kind==="kit"?"k:":"p:")+l.refId;
     top[key]=top[key]||{label:l.kind==="kit"?kitName(l.refId)+" · набір":name(l.refId),q:0,rev:0};
     top[key].q+=num(l.qty)-Math.min(num(l.returned),num(l.qty));top[key].rev+=num(l.qty)*num(l.price)-num(l.discount)-num(l.refund);
@@ -636,7 +649,7 @@ function listView({title,id,kind,cols,rows,search,per=true,add,extra="",above=""
 
 function vOrders(){
   const rows=S.orders.filter(o=>inPeriod(o.date)&&match("orders",[o.number,o.channel,o.note,...(o.lines||[]).map(l=>l.kind==="kit"?kitName(l.refId):name(l.refId))].join(" ")));
-  const items=o=>(o.lines||[]).map(l=>`<div>${esc(l.kind==="kit"?kitName(l.refId)+" · набір":name(l.refId))} × ${qty(l.qty)}${num(l.returned)?` <span class="chip warn"${tipA(`Покупець повернув ${qty(l.returned)} шт. на склад${num(l.refund)?`, повернено ${money(l.refund)}`:""}`)}>повернено ${qty(l.returned)}</span>`:""}</div>`).join("");
+  const items=o=>(o.lines||[]).map(l=>`<div>${esc(l.kind==="kit"?kitName(l.refId)+" · набір":name(l.refId)+(isMat(C.P[l.refId])?" · списання":""))} × ${qty(l.qty)}${num(l.returned)?` <span class="chip warn"${tipA(`Покупець повернув ${qty(l.returned)} шт. на склад${num(l.refund)?`, повернено ${money(l.refund)}`:""}`)}>повернено ${qty(l.returned)}</span>`:""}</div>`).join("");
   const cols=[
     {key:"date",label:"Дата",f:"date",v:o=>o.date||""},
     {key:"number",label:"Замовлення",v:o=>o.number||"",h:o=>`<span class="sku">${esc(o.number||"—")}</span>${demoChip(o)}`},
@@ -653,7 +666,7 @@ function vOrders(){
     {key:"note",label:"Примітка",off:true,cls:"wrapc",v:o=>o.note||""},
   ];
   return listView({title:"Продажі",id:"orders",kind:"order",cols,rows,search:"№ замовлення, SKU, канал",add:addBtn("Продаж","order"),sort:{key:"date",dir:"desc"},
-    empty:S.products.length?["Продажів ще немає","Кожне замовлення — один запис, у ньому можуть бути і товари, і набори."]:["Спершу додайте товари","Продаж обирає товари з довідника на вкладці «Товари»."]});
+    empty:["Продажів ще немає","Кожне замовлення — один запис, у ньому можуть бути і товари, і набори. Новий товар можна створити прямо у формі продажу."]});
 }
 function vPurchases(){
   const rows=S.purchases.filter(b=>inPeriod(b.date)&&match("purchases",[b.batch,b.supplier,b.note,...(b.lines||[]).map(l=>name(l.productId))].join(" ")));
@@ -671,15 +684,16 @@ function vPurchases(){
     {key:"note",label:"Примітка",off:true,cls:"wrapc",v:b=>b.note||""},
   ];
   return listView({title:"Закупівлі",id:"purchases",kind:"purchase",cols,rows,search:"Партія, постачальник, SKU",add:addBtn("Закупівля","purchase"),sort:{key:"date",dir:"desc"},
-    empty:S.products.length?["Закупівель ще немає","Одна закупівля — одна партія від постачальника з усіма товарами та доставкою."]:["Спершу додайте товари","Закупівля обирає товари з довідника на вкладці «Товари»."]});
+    empty:["Закупівель ще немає","Одна закупівля — одна партія від постачальника: товари або пакування, з доставкою. Новий товар чи матеріал можна створити прямо у формі."]});
 }
 function vProducts(){
-  const all=Object.values(C.P),nLow=all.filter(p=>p.status!=="ok").length;
-  const rows=all.filter(p=>(!ui.lowOnly||p.status!=="ok")&&match("products",[p.sku,p.name,p.category,p.supplier].join(" ")));
+  const all=Object.values(C.P),nLow=all.filter(p=>p.status!=="ok").length,pt=ui.ptype||"all";
+  const rows=all.filter(p=>(pt==="all"||(pt==="material")===isMat(p))&&(!ui.lowOnly||p.status!=="ok")&&match("products",[p.sku,p.name,p.category,p.supplier].join(" ")));
   const st={ok:["good","В наявності"],low:["warn","Докупити"],out:["bad","Немає"]},rank={out:0,low:1,ok:2};
   const cols=[
     {key:"sku",label:"SKU",v:p=>p.sku||"",h:p=>`<span class="sku">${esc(p.sku)}</span>${demoChip(p)}`},
-    {key:"name",label:"Назва",cls:"namec",v:p=>p.name||""},
+    {key:"name",label:"Назва",cls:"namec",v:p=>p.name||"",h:p=>esc(p.name)+(isMat(p)?` <span class="chip"${tipA(TYPE_HINT.material)}>матеріал</span>`:"")},
+    {key:"type",label:"Тип",off:true,v:p=>isMat(p)?"Матеріал":"Товар"},
     {key:"category",label:"Категорія",v:p=>p.category||""},
     {key:"supplier",label:"Постачальник",off:true,v:p=>p.supplier||""},
     {key:"bought",label:"Закуплено",f:"qty",total:true,v:p=>p.bought},
@@ -689,16 +703,17 @@ function vProducts(){
     {key:"min",label:"Мін. залишок",f:"qty",off:true,v:p=>num(p.minStock)},
     {key:"avg",label:"Сер. собівартість",f:"money",v:p=>p.avg},
     {key:"value",label:"Вартість залишку",f:"money",total:true,v:p=>p.value},
-    {key:"price",label:"Ціна продажу",f:"money",v:p=>num(p.price),h:p=>p.price?money(p.price):'<span class="mut">—</span>'},
-    {key:"markup",label:"Націнка",f:"pct",off:true,v:p=>p.price&&p.avg?(p.price/p.avg-1)*100:NaN},
-    {key:"revenue",label:"Виручка",f:"money",total:true,off:true,v:p=>p.revenue},
-    {key:"profit",label:"Прибуток",f:"money",total:true,sign:true,v:p=>p.profit},
+    {key:"price",label:"Ціна продажу",f:"money",v:p=>isMat(p)?0:num(p.price),h:p=>p.price&&!isMat(p)?money(p.price):'<span class="mut">—</span>'},
+    {key:"markup",label:"Націнка",f:"pct",off:true,v:p=>p.price&&p.avg&&!isMat(p)?(p.price/p.avg-1)*100:NaN},
+    {key:"revenue",label:"Виручка",f:"money",total:true,off:true,v:p=>isMat(p)?0:p.revenue},
+    {key:"profit",label:"Прибуток",f:"money",total:true,sign:true,v:p=>isMat(p)?0:p.profit,h:p=>isMat(p)?'<span class="mut">—</span>':money(p.profit)},
     // статус сортується за важливістю, а не за алфавітом
     {key:"status",label:"Статус",v:p=>String(rank[p.status]),h:p=>`<span class="chip ${st[p.status][0]}"${tipA(p.status==="ok"?`Залишок ${qty(p.stock)} шт. більший за мінімальний (${qty(p.minStock)} шт.)`:p.status==="low"?`Залишок ${qty(p.stock)} шт. при мінімальному ${qty(p.minStock)} шт. Час докупити`:p.stock<0?`Залишок від'ємний (${qty(p.stock)} шт.). Ймовірно, не внесена закупівля`:"Товару немає на складі")}>${st[p.status][1]}</span>`},
   ];
   const lowBtn=`<button class="btn" id="lowOnly" aria-pressed="${ui.lowOnly}"${tipA(ui.lowOnly?"Показати всі товари":"Показати лише товари, які треба докупити або яких немає")}>Докупити${nLow?` <span class="chip ${ui.lowOnly?"":"warn"}">${nLow}</span>`:""}</button>`;
-  return listView({title:"Товари",id:"products",kind:"product",cols,rows,search:"SKU, назва, категорія",per:false,extra:lowBtn,add:addBtn("Товар","product"),sort:{key:"sku",dir:"asc"},
-    empty:["Товарів ще немає","Додайте товар з унікальним SKU, наприклад CAT-001. Його ви обиратимете в закупівлях і продажах."]});
+  const typeSeg=all.some(isMat)?`<div class="seg" role="group" aria-label="Тип">${[["all","Усі"],["goods","Товари"],["material","Матеріали"]].map(([v,l])=>`<button type="button" data-pfilter="${v}" aria-pressed="${pt===v}">${l}</button>`).join("")}</div>`:"";
+  return listView({title:"Товари й матеріали",id:"products",kind:"product",cols,rows,search:"SKU, назва, категорія",per:false,extra:typeSeg+lowBtn,add:addBtn("Додати","product"),sort:{key:"sku",dir:"asc"},
+    empty:["Довідник порожній","Додайте товар для продажу або матеріал (пакування, коробки). Їх також можна створювати прямо у формі закупівлі."]});
 }
 function vKits(){
   const rows=Object.values(C.K).filter(k=>match("kits",[k.sku,k.name].join(" ")));
@@ -745,6 +760,7 @@ main.addEventListener("click",async e=>{
   const cr=t.closest("[data-colreset]");if(cr){tblState(cr.dataset.colreset).hidden=null;saveTbl(cr.dataset.colreset);return render()}
   const ca=t.closest("[data-colall]");if(ca){tblState(ca.dataset.colall).hidden=[];saveTbl(ca.dataset.colall);return render()}
   if(t.closest("#lowOnly")){ui.lowOnly=!ui.lowOnly;return render()}
+  const pf=t.closest("[data-pfilter]");if(pf){ui.ptype=pf.dataset.pfilter;return render()}
   if(t.closest("#clearDemo")){
     if(!ui.demoSure){ui.demoSure=true;render();setTimeout(()=>{if(ui.demoSure){ui.demoSure=false;render()}},5000);return}
     const b=t.closest("#clearDemo");b.disabled=true;b.textContent="Видаляю…";ui.demoSure=false;
@@ -793,7 +809,7 @@ function openForm(kind,id){
   const ex=id?S[col].find(d=>d.id===id):null;
   if(id&&!ex)return;
   let data=ex?JSON.parse(JSON.stringify(ex)):{
-    product:{sku:"",name:"",category:"",supplier:"",minStock:"",price:""},
+    product:{type:"goods",sku:"",name:"",category:"",supplier:"",minStock:"",price:""},
     kit:{sku:"",name:"",price:"",components:[blankLine.kit()]},
     purchase:{date:today(),batch:nextNumber("purchases","batch","ZAK-"),supplier:"",shipping:"",note:"",lines:[blankLine.purchase()]},
     order:{date:today(),number:nextNumber("orders","number","ORD-"),channel:"",note:"",commission:"",shipCost:"",lines:[blankLine.order()]},
@@ -806,7 +822,7 @@ function openForm(kind,id){
   drawSheet();
 }
 function closeSheet(){F=null;hideTip();document.getElementById("sheetRoot").innerHTML="";document.body.style.removeProperty("overflow")}
-const titles={product:["Новий товар","Товар"],kit:["Новий набір","Набір"],purchase:["Нова закупівля","Закупівля"],order:["Новий продаж","Продаж"],expense:["Нова витрата","Витрата"]};
+const titles={product:["Новий запис у довіднику","Товар або матеріал"],kit:["Новий набір","Набір"],purchase:["Нова закупівля","Закупівля"],order:["Новий продаж","Продаж"],expense:["Нова витрата","Витрата"]};
 function fld(key,label,o={}){
   const v=F.data[key]??"";
   const attrs=o.num?'type="text" inputmode="decimal" autocomplete="off"':`type="${o.type||"text"}"`;
@@ -815,7 +831,46 @@ function fld(key,label,o={}){
 const LINE_TIPS={extra:"Витрати саме на цей товар: маркування, упаковка тощо. Йдуть у його собівартість",discount:"Знижка на весь рядок у гривнях, не у відсотках",returned:"Скільки штук покупець повернув на склад. Вони знову з'являться в залишку",refund:"Скільки грошей повернули покупцю. Віднімається від виручки",qty:"",price:""};
 function lfld(i,key,label){const v=F.data[linesKey()][i][key]??"";return `<label class="f"><span class="lb">${label}${LINE_TIPS[key]?ti(LINE_TIPS[key]):""}</span><input id="l_${i}_${key}" data-l="${i}" data-lk="${key}" type="text" inputmode="decimal" autocomplete="off" value="${esc(v)}"></label>`}
 const sortedProducts=()=>[...S.products].sort((a,b)=>(a.sku||"").localeCompare(b.sku||"","uk",{numeric:true}));
-function productOptions(sel){return `<option value="">Оберіть товар</option>`+sortedProducts().map(p=>`<option value="${esc(p.id)}"${p.id===sel?" selected":""}>${esc(p.sku)} — ${esc(p.name)}</option>`).join("")}
+const opt=(val,sel,p)=>`<option value="${esc(val)}"${val===sel?" selected":""}>${esc(p.sku)} — ${esc(p.name)}</option>`;
+// товари й матеріали в окремих групах списку; prefix — для списку продажу, де значення "p:<id>"
+function productGroups(sel,prefix=""){
+  const ps=sortedProducts(),g=ps.filter(p=>!isMat(p)),m=ps.filter(isMat);
+  return (g.length?`<optgroup label="Товари для продажу">${g.map(p=>opt(prefix+p.id,sel,p)).join("")}</optgroup>`:"")
+    +(m.length?`<optgroup label="${prefix?"Пакування й матеріали (списання)":"Пакування й матеріали"}">${m.map(p=>opt(prefix+p.id,sel,p)).join("")}</optgroup>`:"");
+}
+function productOptions(sel){return `<option value="">Оберіть товар або матеріал</option>${productGroups(sel)}<option value="__new">+ Створити новий…</option>`}
+function autoSku(type){
+  const pre=type==="material"?"MAT-":"TOV-";let max=0;
+  for(const p of S.products){const m=String(p.sku||"").match(new RegExp("^"+pre+"(\\d+)$"));if(m)max=Math.max(max,+m[1])}
+  return pre+String(max+1).padStart(3,"0");
+}
+const TYPE_HINT={goods:"Товар, який ви продаєте покупцям. У нього є ціна продажу, і він рахується в прибутку.",material:"Не продається окремо: пакування, коробки, наповнювач, листівки. Його закуповують, додають у склад бокса або списують у продажі, і його вартість іде в собівартість."};
+const segType=(cur,attr)=>`<div class="seg" role="group" aria-label="Тип">${[["goods","Товар для продажу"],["material","Матеріал / пакування"]].map(([v,l])=>`<button type="button" ${attr}="${v}" aria-pressed="${cur===v}"${tipA(TYPE_HINT[v])}>${l}</button>`).join("")}</div>`;
+// міні-форма в рядку: створити товар або матеріал, не виходячи з закупівлі, набору чи продажу
+function newProductBox(i){
+  const n=F.data[linesKey()][i]._new;
+  return `<div class="newp"><div class="line-h"><b>Новий запис у довіднику</b><button type="button" class="icon-btn" data-ncancel="${i}" aria-label="Скасувати" data-tip="Повернутися до списку">✕</button></div>
+    ${segType(n.type,`data-ntype data-l="${i}" data-v`).replace(/data-v="/g,'data-v="')}
+    <label class="f"><span class="lb">Назва *</span><input id="l_${i}_newname" data-nn="${i}" value="${esc(n.name)}" placeholder="${n.type==="material"?"Наприклад: коробка для бокса 20×20":"Наприклад: свічка «Лаванда»"}" autocomplete="off"></label>
+    <p class="hint">${TYPE_HINT[n.type]} SKU створиться автоматично, решту можна доповнити на вкладці «Товари».</p>
+    ${n.err?`<p class="err">${esc(n.err)}</p>`:""}
+    <div><button type="button" class="btn primary" data-ncreate="${i}">Додати в довідник</button></div></div>`;
+}
+function createInline(i){
+  const l=F.data[linesKey()][i],n=l._new,nm=(n.name||"").trim();
+  if(!nm){n.err="Вкажіть назву.";drawSheet();document.getElementById(`l_${i}_newname`)?.focus();return}
+  const dup=S.products.find(p=>(p.name||"").trim().toLowerCase()===nm.toLowerCase());
+  if(dup){n.err=`«${dup.name}» вже є в довіднику (${dup.sku}). Оберіть його зі списку.`;drawSheet();return}
+  const ref=db.collection("products").doc(),mat=n.type==="material";
+  const p={sku:autoSku(n.type),name:nm,type:mat?"material":"goods",category:mat?"Пакування":"",supplier:F.kind==="purchase"?(F.data.supplier||"").trim():"",price:0,minStock:0};
+  ref.set(p).catch(err=>toast("Не вдалося створити: "+errText(err),true));
+  if(!S.products.some(x=>x.id===ref.id)){S.products.push({id:ref.id,...p});C=compute()}
+  delete l._new;
+  if(F.kind==="order"){l.kind="product";l.refId=ref.id;delete l.components}else l.productId=ref.id;
+  drawSheet();
+  const next=document.getElementById(`l_${i}_${F.kind==="kit"?"qty":F.kind==="order"?"qty":"qty"}`);next?.focus();next?.select?.();
+  toast(`${mat?"Матеріал":"Товар"} «${nm}» додано в довідник`);
+}
 function dlist(id,vals){return `<datalist id="${id}">${[...new Set(vals.filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join("")}</datalist>`}
 const removeBtn=i=>`<button type="button" class="icon-btn" data-del="${i}" aria-label="Прибрати рядок" data-tip="Прибрати цей рядок">✕</button>`;
 
@@ -839,6 +894,7 @@ function lineInfo(i){
     let avail=Math.min(...comps.map(c=>num(c.qty)?Math.floor(((C.P[c.productId]?.stock||0)+used(c.productId))/num(c.qty)):Infinity));
     if(!isFinite(avail))avail=0;
     const q=num(l.qty),short=q>avail;
+    if(!kit&&isMat(C.P[l.refId]))return `<span>Списання матеріалу: <b>${money(uc*q)}</b> піде в собівартість</span><span class="chip ${short?"bad":"good"}">${short?`на складі лише ${qty(Math.max(avail,0))} шт.`:`на складі ${qty(avail)} шт.`}</span>`;
     return `<span>Собівартість 1 шт.: <b>${money(uc)}</b></span><span class="chip ${short?"bad":avail-q<=2?"warn":"good"}"${tipA(short?"Продаєте більше, ніж є на складі. Перевірте, чи внесена закупівля, інакше залишок стане від'ємним":F.id?"Скільки є на складі з урахуванням цього продажу":"Скільки є на складі зараз")}>${short?`на складі лише ${qty(Math.max(avail,0))} шт.`:`на складі ${qty(avail)} шт.`}</span>${kit&&F.id&&l.components?`<span>склад набору — на момент продажу</span>`:""}`;
   }
   return "";
@@ -875,28 +931,29 @@ function updateDerived(){
 function sheetBody(){
   const d=F.data,k=F.kind;
   const sup=dlist("dl_sup",S.products.map(p=>p.supplier).concat(S.purchases.map(b=>b.supplier)));
-  if(k==="product")return `<div class="fg">${fld("sku","SKU / артикул *",{ph:"CAT-001",tip:"Унікальний код товару. Його ви обиратимете в закупівлях і продажах"})}${fld("name","Назва *")}
+  if(k==="product"){const mat=d.type==="material";return `<div class="sec">${segType(mat?"material":"goods","data-ptype")}<p class="hint">${TYPE_HINT[mat?"material":"goods"]}</p></div>
+    <div class="fg">${fld("name","Назва *",{wide:true})}${fld("sku","SKU / артикул",{ph:F.id?"":autoSku(mat?"material":"goods"),tip:"Унікальний код. Якщо залишити порожнім, створиться автоматично"})}
     ${fld("category","Категорія",{list:"dl_cat"})}${fld("supplier","Постачальник / бренд",{list:"dl_sup"})}
-    ${fld("price","Ціна продажу, ₴",{num:true,tip:"Підставляється автоматично, коли додаєте товар у продаж. Ціну в продажі можна змінити"})}${fld("minStock","Мін. залишок, шт.",{num:true,tip:"Коли залишок опуститься до цього числа, товар з'явиться в «Треба докупити»"})}</div>
-    <p class="hint">Ціна продажу підставляється автоматично, коли ви додаєте товар у продаж. Коли залишок опуститься до мінімального, товар з'явиться в «Треба докупити».</p>
-    ${dlist("dl_cat",S.products.map(p=>p.category))}${sup}`;
+    ${mat?"":fld("price","Ціна продажу, ₴",{num:true,tip:"Підставляється автоматично, коли додаєте товар у продаж. Ціну в продажі можна змінити"})}${fld("minStock","Мін. залишок, шт.",{num:true,tip:"Коли залишок опуститься до цього числа, запис з'явиться в «Треба докупити»"})}</div>
+    <p class="hint">${mat?"Щоб вартість пакування потрапляла в собівартість бокса, додайте цей матеріал у склад набору на вкладці «Набори».":"Ціна продажу підставляється автоматично, коли ви додаєте товар у продаж."} Коли залишок опуститься до мінімального, запис з'явиться в «Треба докупити».</p>
+    ${dlist("dl_cat",S.products.map(p=>p.category).concat(mat?["Пакування"]:[]))}${sup}`;}
   if(k==="expense")return `<div class="fg">${fld("date","Дата *",{type:"date"})}${fld("amount","Сума, ₴ *",{num:true})}
     ${fld("category","Категорія *",{list:"dl_ecat",wide:true,tip:"Оберіть зі списку або впишіть свою. За категоріями видно, на що йдуть гроші"})}${fld("note","Коментар",{wide:true,ph:"Наприклад: таргет Instagram"})}</div>
     ${dlist("dl_ecat",EXP_CATS.concat(S.expenses.map(e=>e.category)))}
-    <p class="hint">Доставку від постачальника вносьте в закупівлю, вона піде в собівартість. Доставку до покупця — у продаж.</p>`;
+    <p class="hint">Пакування для боксів краще вносити як закупівлю матеріалу: тоді видно залишок, а вартість потрапляє в собівартість бокса. Сюди — те, що не рахуєте поштучно. Доставку від постачальника вносьте в закупівлю, доставку до покупця — у продаж.</p>`;
   if(k==="kit")return `<div class="fg three">${fld("sku","SKU набору *")}${fld("name","Назва *")}${fld("price","Ціна, ₴",{num:true,tip:"Ціна продажу набору. Підставляється в продаж автоматично"})}</div>
-    <div class="sec"><div class="sec-h"><h3>Склад набору</h3></div><div class="lines">${d.components.map((c,i)=>`<div class="line">
-      <div class="line-h"><select id="l_${i}_productId" data-l="${i}" data-lk="productId" aria-label="Товар">${productOptions(c.productId)}</select>${removeBtn(i)}</div>
+    <div class="sec"><div class="sec-h"><h3>Склад набору${ti("Товари й пакування, з яких складається набір. Додайте сюди коробку та інше пакування, щоб їх вартість ішла в собівартість набору")}</h3></div><div class="lines">${d.components.map((c,i)=>`<div class="line">
+      ${c._new?newProductBox(i):`<div class="line-h"><select id="l_${i}_productId" data-l="${i}" data-lk="productId" aria-label="Товар або матеріал">${productOptions(c.productId)}</select>${removeBtn(i)}</div>`}
       <div class="line-g">${lfld(i,"qty","Кількість у наборі")}</div><div class="line-i" id="li_${i}">${lineInfo(i)}</div></div>`).join("")}</div>
       <div><button type="button" class="btn" data-add data-tip="Додати ще один товар у набір">+ Компонент</button></div></div>
     <div class="calc" id="calc">${calcHtml()}</div>
     ${F.id?`<p class="hint">Зміна складу не перерахує вже внесені продажі: кожен продаж зберігає склад набору на момент продажу.</p>`:""}`;
   if(k==="purchase")return `<div class="fg three">${fld("date","Дата *",{type:"date"})}${fld("batch","№ партії",{tip:"Номер замовлення в постачальника, щоб легко знайти партію"})}${fld("supplier","Постачальник",{list:"dl_sup"})}</div>
-    <div class="sec"><div class="sec-h"><h3>Товари в партії</h3></div><div class="lines">${d.lines.map((l,i)=>`<div class="line">
-      <div class="line-h"><select id="l_${i}_productId" data-l="${i}" data-lk="productId" aria-label="Товар">${productOptions(l.productId)}</select>${removeBtn(i)}</div>
+    <div class="sec"><div class="sec-h"><h3>Товари й матеріали в партії</h3></div><div class="lines">${d.lines.map((l,i)=>`<div class="line">
+      ${l._new?newProductBox(i):`<div class="line-h"><select id="l_${i}_productId" data-l="${i}" data-lk="productId" aria-label="Товар або матеріал">${productOptions(l.productId)}</select>${removeBtn(i)}</div>`}
       <div class="line-g">${lfld(i,"qty","Кількість, шт.")}${lfld(i,"price","Ціна за шт., ₴")}${lfld(i,"extra","Дод. витрати, ₴")}</div>
       <div class="line-i" id="li_${i}">${lineInfo(i)}</div></div>`).join("")}</div>
-      <div><button type="button" class="btn" data-add data-tip="Додати ще один товар у партію">+ Товар</button></div></div>
+      <div><button type="button" class="btn" data-add data-tip="Додати ще один товар або матеріал у партію">+ Рядок</button></div></div>
     <div class="fg">${fld("shipping","Доставка всієї партії, ₴",{num:true,tip:"Вводиться один раз на всю партію. Ділиться між товарами пропорційно їхній вартості й іде в собівартість"})}${fld("note","Примітка")}</div>
     <p class="hint">Доставка ділиться між товарами пропорційно їхній вартості й входить у собівартість.</p>
     <div class="calc" id="calc">${calcHtml()}</div>${sup}`;
@@ -904,9 +961,11 @@ function sheetBody(){
     <div class="sec"><div class="sec-h"><h3>Позиції</h3></div><div class="lines">${d.lines.map((l,i)=>{
       const val=l.refId?(l.kind==="kit"?"k:":"p:")+l.refId:"";
       return `<div class="line">
-      <div class="line-h"><select id="l_${i}_ref" data-l="${i}" data-lk="ref" aria-label="Товар або набір"><option value="">Оберіть товар або набір</option>
-        <optgroup label="Товари">${sortedProducts().map(p=>`<option value="p:${esc(p.id)}"${val==="p:"+p.id?" selected":""}>${esc(p.sku)} — ${esc(p.name)}</option>`).join("")}</optgroup>
-        ${S.kits.length?`<optgroup label="Набори">${S.kits.map(x=>`<option value="k:${esc(x.id)}"${val==="k:"+x.id?" selected":""}>${esc(x.sku)} — ${esc(x.name)}</option>`).join("")}</optgroup>`:""}</select>${removeBtn(i)}</div>
+      ${l._new?newProductBox(i):`<div class="line-h"><select id="l_${i}_ref" data-l="${i}" data-lk="ref" aria-label="Товар, набір або матеріал"><option value="">Оберіть товар або набір</option>
+        ${productGroups(val,"p:").replace(/(<optgroup label="Пакування[^"]*">[\s\S]*?<\/optgroup>)/,"")}
+        ${S.kits.length?`<optgroup label="Набори">${S.kits.map(x=>opt("k:"+x.id,val,x)).join("")}</optgroup>`:""}
+        ${(productGroups(val,"p:").match(/<optgroup label="Пакування[^"]*">[\s\S]*?<\/optgroup>/)||[""])[0]}
+        <option value="__new">+ Створити новий…</option></select>${removeBtn(i)}</div>`}
       <div class="line-g">${lfld(i,"qty","Кількість")}${lfld(i,"price","Ціна за шт., ₴")}${lfld(i,"discount","Знижка, ₴")}</div>
       ${l._ret?`<div class="line-g">${lfld(i,"returned","Повернуто, шт.")}${lfld(i,"refund","Повернуто грошей, ₴")}</div>`:""}
       <div class="line-i"><span id="li_${i}" style="display:contents">${lineInfo(i)}</span>${l._ret?"":`<button type="button" class="link" data-ret="${i}" data-tip="Вказати, скільки товару повернулось на склад і скільки грошей повернули покупцю">+ Повернення</button>`}</div></div>`}).join("")}</div>
@@ -937,6 +996,7 @@ function drawSheet(){
 const sheetRoot=document.getElementById("sheetRoot");
 sheetRoot.addEventListener("input",e=>{
   if(!F)return;const i=e.target;
+  if(i.dataset.nn!==undefined){const n=F.data[linesKey()][+i.dataset.nn]._new;if(n)n.name=i.value;return}
   if(i.dataset.k){F.data[i.dataset.k]=i.value;updateDerived()}
   else if(i.dataset.l&&i.tagName!=="SELECT"){F.data[linesKey()][+i.dataset.l][i.dataset.lk]=i.value;updateDerived()}
 });
@@ -944,6 +1004,7 @@ sheetRoot.addEventListener("change",e=>{
   if(!F)return;const i=e.target;
   if(i.tagName!=="SELECT"||!i.dataset.l)return;
   const l=F.data[linesKey()][+i.dataset.l];
+  if(i.value==="__new"){l._new={name:"",type:"goods"};drawSheet();document.getElementById(`l_${i.dataset.l}_newname`)?.focus();return}
   if(i.dataset.lk==="ref"){
     const[kd,id]=i.value.split(":");l.kind=kd==="k"?"kit":"product";l.refId=id||"";delete l.components;
     if(!num(l.price)){const src=kd==="k"?S.kits.find(x=>x.id===id):S.products.find(x=>x.id===id);if(src&&num(src.price))l.price=String(src.price)}
@@ -954,6 +1015,10 @@ sheetRoot.addEventListener("click",async e=>{
   if(!F)return;const t=e.target,arr=F.data[linesKey()];
   if(t.id==="scrim"||t.closest("#closeS")||t.closest("#cancelS"))return closeSheet();
   if(t.closest("#saveS"))return save();
+  const pt=t.closest("[data-ptype]");if(pt){F.data.type=pt.dataset.ptype;if(F.data.type==="material"&&!F.data.category)F.data.category="Пакування";return drawSheet()}
+  const nt=t.closest("[data-ntype]");if(nt){F.data[linesKey()][+nt.dataset.l]._new.type=nt.dataset.v;drawSheet();document.getElementById(`l_${nt.dataset.l}_newname`)?.focus();return}
+  const nc=t.closest("[data-ncancel]");if(nc){delete F.data[linesKey()][+nc.dataset.ncancel]._new;return drawSheet()}
+  const nk=t.closest("[data-ncreate]");if(nk)return createInline(+nk.dataset.ncreate);
   const del=t.closest("[data-del]");if(del){arr.splice(+del.dataset.del,1);if(!arr.length)arr.push(blankLine[F.kind]());return drawSheet()}
   if(t.closest("[data-add]")){arr.push(blankLine[F.kind]());drawSheet();const n=arr.length-1;document.getElementById(`l_${n}_${F.kind==="order"?"ref":"productId"}`)?.focus();return}
   const rt=t.closest("[data-ret]");if(rt){arr[+rt.dataset.ret]._ret=true;drawSheet();document.getElementById(`l_${rt.dataset.ret}_returned`)?.focus();return}
@@ -965,6 +1030,8 @@ sheetRoot.addEventListener("click",async e=>{
   }
 });
 sheetRoot.addEventListener("submit",e=>{e.preventDefault();save()});
+// Enter у назві нового запису створює його, а не зберігає всю форму
+sheetRoot.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.dataset?.nn!==undefined){e.preventDefault();createInline(+e.target.dataset.nn)}});
 function usedProduct(pid){
   return S.purchases.some(b=>(b.lines||[]).some(l=>l.productId===pid))||S.orders.some(o=>(o.lines||[]).some(l=>l.refId===pid||(l.components||[]).some(c=>c.productId===pid)))||S.kits.some(k=>(k.components||[]).some(c=>c.productId===pid));
 }
@@ -973,20 +1040,23 @@ async function save(){
   const d=JSON.parse(JSON.stringify(F.data)),k=F.kind;let err="";
   for(const x of ["minStock","price","amount","shipping","commission","shipCost"])if(x in d)d[x]=num(d[x]);
   for(const x of ["sku","name","category","supplier","batch","number","channel","note"])if(typeof d[x]==="string")d[x]=d[x].trim();
-  if(k==="product"){
-    if(!d.sku||!d.name)err="Вкажіть SKU і назву.";
+  if(F.data[linesKey()]?.some?.(l=>l._new&&(l._new.name||"").trim()))err="Натисніть «Додати в довідник» у новому рядку або приберіть його.";
+  else if(k==="product"){
+    if(d.type!=="material")d.type="goods";else d.price=0;
+    if(!d.sku)d.sku=autoSku(d.type);
+    if(!d.name)err="Вкажіть назву.";
     else if(S.products.some(p=>p.id!==F.id&&(p.sku||"").toLowerCase()===d.sku.toLowerCase()))err=`SKU ${d.sku} вже є. Кожен товар має мати свій SKU.`;
   }
-  if(k==="kit"){
+  if(!err&&k==="kit"){
     d.components=d.components.filter(c=>c.productId).map(c=>({productId:c.productId,qty:num(c.qty)}));
     if(!d.sku||!d.name)err="Вкажіть SKU і назву набору.";else if(!d.components.length)err="Додайте хоча б один товар у набір.";
     else if(d.components.some(c=>c.qty<=0))err="Кількість кожного компонента має бути більшою за нуль.";
   }
-  if(k==="purchase"){
+  if(!err&&k==="purchase"){
     d.lines=d.lines.filter(l=>l.productId).map(l=>({productId:l.productId,qty:num(l.qty),price:num(l.price),extra:num(l.extra)}));
-    if(!d.date)err="Вкажіть дату.";else if(!d.lines.length)err="Оберіть хоча б один товар.";else if(d.lines.some(l=>l.qty<=0))err="Кількість має бути більшою за нуль.";
+    if(!d.date)err="Вкажіть дату.";else if(!d.lines.length)err="Оберіть хоча б один товар або матеріал.";else if(d.lines.some(l=>l.qty<=0))err="Кількість має бути більшою за нуль.";
   }
-  if(k==="order"){
+  if(!err&&k==="order"){
     d.lines=d.lines.filter(l=>l.refId).map(l=>{
       const o={kind:l.kind||"product",refId:l.refId,qty:num(l.qty),price:num(l.price),discount:num(l.discount),returned:num(l.returned),refund:num(l.refund)};
       if(o.kind==="kit")o.components=l.components||(S.kits.find(x=>x.id===l.refId)?.components||[]).map(c=>({productId:c.productId,qty:num(c.qty)}));
@@ -1017,7 +1087,7 @@ function exportXlsx(){
   const add=(nm,rows)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.length?rows:[{}]),nm);
   const t=periodTotals(()=>true);
   add("Зведення",[["Виручка",t.net],["Собівартість проданого",t.cogs],["Комісії",t.commission],["Доставка за рахунок магазину",t.ship],["Прибуток від продажів",t.gross],["Інші витрати",t.expenses],["Чистий результат",t.result]].map(([a,b])=>({"Показник":a,"Сума, грн":r2(b)})));
-  add("Товари",Object.values(C.P).map(p=>({"SKU":p.sku,"Назва":p.name,"Категорія":p.category,"Постачальник":p.supplier,"Ціна продажу":r2(p.price),"Мін. залишок":p.minStock,"Закуплено":p.bought,"Продано":p.sold,"Повернено":p.returned,"Залишок":p.stock,"Сер. собівартість":r2(p.avg),"Вартість залишку":r2(p.value),"Прибуток":r2(p.profit)})));
+  add("Товари",Object.values(C.P).map(p=>({"SKU":p.sku,"Назва":p.name,"Тип":isMat(p)?"матеріал":"товар","Категорія":p.category,"Постачальник":p.supplier,"Ціна продажу":r2(p.price),"Мін. залишок":p.minStock,"Закуплено":p.bought,"Продано":p.sold,"Повернено":p.returned,"Залишок":p.stock,"Сер. собівартість":r2(p.avg),"Вартість залишку":r2(p.value),"Прибуток":r2(p.profit)})));
   add("Закупівлі",S.purchases.flatMap(b=>(b.lines||[]).map(l=>({"Дата":b.date,"Партія":b.batch,"Постачальник":b.supplier,"SKU":name(l.productId),"Кількість":l.qty,"Ціна":l.price,"Дод. витрати":l.extra,"Доставка партії":b.shipping,"Примітка":b.note}))));
   add("Продажі",S.orders.flatMap(o=>(o.lines||[]).map((l,i)=>({"Дата":o.date,"Замовлення":o.number,"Канал":o.channel,"Тип":l.kind==="kit"?"набір":"товар","SKU":l.kind==="kit"?kitName(l.refId):name(l.refId),"Кількість":l.qty,"Ціна":l.price,"Знижка":l.discount,"Повернуто, шт":l.returned,"Повернуто, грн":l.refund,"Комісія (замовл.)":i?"":o.commission,"Доставка (замовл.)":i?"":o.shipCost,"Прибуток (замовл.)":i?"":r2(o._profit),"Примітка":o.note}))));
   add("Набори",S.kits.flatMap(k=>(k.components||[]).map(c=>({"SKU набору":k.sku,"Назва":k.name,"Ціна":k.price,"Компонент":name(c.productId),"Кількість":c.qty}))));
