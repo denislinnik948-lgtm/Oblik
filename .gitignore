@@ -2,3 +2,5 @@
 *.xlsx
 dev/
 .claude/
+.firebase/
+firebase-debug.log

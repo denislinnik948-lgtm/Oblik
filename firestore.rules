@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Доступ лише для цих акаунтів. Email має збігатися з тим, під яким
+    // користувача створено у Firebase Authentication.
+    function allowed() {
+      return request.auth != null
+        && request.auth.token.email.lower() in ['OWNER_EMAIL', 'PARTNER_EMAIL'];
+    }
+    match /{collection}/{docId} {
+      allow read, write: if allowed()
+        && collection in ['products', 'kits', 'purchases', 'orders', 'expenses'];
+    }
+  }
+}

@@ -1,8 +1,22 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#151515">
 <title>Облік магазину</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!--FIREBASE-->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<!--/FIREBASE-->
 <style>
 /* Layout: app shell — header and tabs fixed in place; summary scrolls as a page, list tabs scroll only inside the table.
    Monochrome base; green / amber / red only for states that need attention. */
@@ -23,6 +37,10 @@
   --btn:#F0F0EE; --btn-ink:#111111; --bar:#4A4A4A; --scrim:rgba(0,0,0,.6);
   --good:#5CC888; --good-bg:#15301F; --warn:#E6B44D; --warn-bg:#352A12; --bad:#F27B70; --bad-bg:#3B1D1A; color-scheme:dark}
 *{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;display:flex;flex-direction:column;overflow:hidden}
 .wrap{width:100%;max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -227,6 +245,34 @@ span.ti{display:inline-grid;place-items:center;width:16px;height:16px;border-rad
 [data-tip]{-webkit-touch-callout:none}
 label.f .lb{display:flex;align-items:center}
 
+/* вхід */
+.login{flex:1;display:grid;place-items:center;overflow-y:auto;padding-block:24px}
+.login-c{width:min(380px,100%);background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:16px}
+.login-c .brand{font-size:20px;white-space:normal}
+.login-c p{margin:0;color:var(--muted);font-size:14px}
+.login-c .btn{width:100%}
+.login-msg{font-size:14px;margin:0;padding:10px 12px;border-radius:10px}
+.login-msg.bad{background:var(--bad-bg);color:var(--bad)}
+.login-msg.good{background:var(--good-bg);color:var(--good)}
+
+/* меню акаунта */
+.um{position:relative;flex:none}
+.avatar{width:var(--ctl);height:var(--ctl);min-height:0;padding:0;border-radius:50%;font-weight:700;font-size:14px;text-transform:uppercase}
+.um-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r);padding:6px;width:260px;box-shadow:0 12px 32px rgba(0,0,0,.18);display:flex;flex-direction:column}
+.um-h{padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.um-pop button{all:unset;cursor:pointer;padding:9px 10px;border-radius:7px;font-size:14px}
+.um-pop button:hover,.um-pop button:focus-visible{background:var(--sunken)}
+.um-pop button.out{color:var(--bad);border-top:1px solid var(--line);margin-top:4px;border-radius:0 0 7px 7px}
+
+/* сповіщення й підтвердження */
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:90;background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:10px;font-size:14px;font-weight:500;max-width:calc(100vw - 32px);box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.toast.bad{background:var(--bad);color:#fff}
+.confirm{position:fixed;inset:0;z-index:60;background:var(--scrim);display:grid;place-items:center;padding:16px}
+.confirm-c{background:var(--surface);border-radius:14px;padding:22px;width:min(420px,100%);display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.confirm-c h2{font-size:17px}
+.confirm-c p{margin:0;color:var(--muted);font-size:14.5px;white-space:pre-line}
+.confirm-f{display:flex;gap:10px;justify-content:flex-end}
+
 /* телефон */
 @media (max-width:640px){
   :root{--ctl:42px;--fs-ctl:16px}
@@ -250,11 +296,34 @@ label.f .lb{display:flex;align-items:center}
 @media (max-width:350px){.fg,.fg.three,.line-g{grid-template-columns:minmax(0,1fr)}}
 </style>
 
-<header class="app-h">
+</head>
+<body>
+<section class="login wrap" id="login" hidden>
+  <form class="login-c" id="loginForm" novalidate>
+    <h1 class="brand">Облік магазину</h1>
+    <p id="loginNote">Увійдіть, щоб продовжити.</p>
+    <label class="f">Email<input type="email" id="loginEmail" autocomplete="username" required></label>
+    <label class="f">Пароль<input type="password" id="loginPass" autocomplete="current-password" required></label>
+    <p class="login-msg" id="loginMsg" role="alert" hidden></p>
+    <button class="btn primary" type="submit" id="loginBtn">Увійти</button>
+    <button class="link" type="button" id="resetBtn" style="align-self:center">Забули пароль?</button>
+  </form>
+</section>
+<header class="app-h" id="appHeader" hidden>
   <div class="wrap top">
     <h1 class="brand">Облік магазину</h1>
     <div class="sync" id="sync" role="status" data-tip="Підключаюся до сховища даних"><i></i><span>Підключення…</span></div>
-    <button class="btn sm" id="exportBtn" hidden data-tip="Завантажити всі дані у файл Excel: товари, закупівлі, продажі, набори, витрати й зведення">Excel</button>
+    <div class="um">
+      <button class="btn avatar" id="userBtn" aria-haspopup="true" aria-expanded="false" data-tip="Акаунт, вивантаження й резервні копії">?</button>
+      <div class="um-pop" id="userMenu" hidden>
+        <div class="um-h" id="userEmail"></div>
+        <button data-act="excel">Завантажити в Excel</button>
+        <button data-act="backup">Зберегти резервну копію</button>
+        <button data-act="restore">Відновити з копії…</button>
+        <button data-act="logout" class="out">Вийти</button>
+      </div>
+    </div>
+    <input type="file" id="restoreFile" accept=".json,application/json" hidden>
   </div>
   <div class="wrap">
     <nav role="tablist" id="tabs">
@@ -267,14 +336,15 @@ label.f .lb{display:flex;align-items:center}
     </nav>
   </div>
 </header>
-<main id="main"></main>
+<main id="main" hidden></main>
 <div id="sheetRoot"></div>
+<div id="toastRoot"></div>
 
 <script>
 "use strict";
 const COLS=["products","kits","purchases","orders","expenses"];
 const S={products:[],kits:[],purchases:[],orders:[],expenses:[]};
-let db=null, canWrite=true, tab="summary", period="all", C=null, firstLoad=new Set(), dl=null;
+let db=null, auth=null, canWrite=true, tab="summary", period="all", C=null, firstLoad=new Set();
 const ui={q:{},lowOnly:false,colMenu:null,tbl:{},demoSure:false};
 const EXP_CATS=["Реклама","Сервіси та підписки","Пакування для складу","Банк та еквайринг","Оренда","Зарплата","Податки","Інше"];
 const main=document.getElementById("main");
@@ -401,7 +471,6 @@ function render(){
   main.innerHTML=`<div class="wrap page">${demoBanner()}${VIEWS[tab]()}</div>`;
   if(same){main.scrollTop=ms;const t2=main.querySelector(".tw");if(t2&&sc){t2.scrollTop=sc[0];t2.scrollLeft=sc[1]}const cp=main.querySelector(".cm-pop");if(cp)cp.scrollTop=cmScroll}
   if(fid){const n=document.getElementById(fid);if(n){n.focus({preventScroll:true});if(sel)try{n.setSelectionRange(sel[0],sel[1])}catch(_){}}}
-  document.getElementById("exportBtn").hidden=!dl||!S.products.length;
   if(tipFor&&!tipFor.isConnected)hideTip();
 }
 function demoBanner(){
@@ -426,7 +495,7 @@ const match=(k,txt)=>{const q=(ui.q[k]||"").trim().toLowerCase();return !q||txt.
 
 function vSummary(){
   if(!S.orders.length&&!S.purchases.length&&!S.products.length)
-    return `<div class="tb"><div class="tb-1"><h2>Зведення</h2></div></div><div class="empty"><b>Даних поки немає</b><p>Почніть з вкладки «Товари»: додайте перший товар, потім внесіть закупівлю й продаж.</p>${canWrite?`<button class="btn primary" data-new="product">+ Товар</button>`:""}</div>`;
+    return `<div class="tb"><div class="tb-1"><h2>Зведення</h2></div></div><div class="empty"><b>Даних поки немає</b><p>Почніть з вкладки «Товари»: додайте перший товар, потім внесіть закупівлю й продаж. Або завантажте приклади, щоб подивитися, як усе рахується.</p>${canWrite?`<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn primary" data-new="product">+ Товар</button><button class="btn" id="loadDemo" data-tip="Додати кілька прикладів товарів, закупівель, продажів і витрат. Потім їх можна видалити однією кнопкою">Завантажити приклади</button></div>`:""}</div>`;
   const t=periodTotals(inPeriod),pp=prevPeriod(period),pt=pp?periodTotals(d=>(d||"").startsWith(pp)):null;
   const P=Object.values(C.P);
   const stockUnits=P.reduce((s,p)=>s+Math.max(p.stock,0),0),stockVal=P.reduce((s,p)=>s+p.value,0);
@@ -679,7 +748,13 @@ main.addEventListener("click",async e=>{
   if(t.closest("#clearDemo")){
     if(!ui.demoSure){ui.demoSure=true;render();setTimeout(()=>{if(ui.demoSure){ui.demoSure=false;render()}},5000);return}
     const b=t.closest("#clearDemo");b.disabled=true;b.textContent="Видаляю…";ui.demoSure=false;
-    try{for(const c of COLS)for(const d of S[c].filter(x=>x.demo))await db.collection(c).doc(d.id).delete()}catch(_){b.disabled=false;b.textContent="Не вдалося, спробуйте ще раз"}
+    const refs=[];for(const c of COLS)for(const d of S[c].filter(x=>x.demo))refs.push(db.collection(c).doc(d.id));
+    writeBatches(refs.map(r=>b=>b.delete(r))).then(()=>toast("Приклади видалено")).catch(err=>toast(errText(err),true));
+    return;
+  }
+  if(t.closest("#loadDemo")){
+    t.closest("#loadDemo").disabled=true;
+    writeBatches(Object.entries(DEMO).flatMap(([c,docs])=>docs.map(d=>b=>{const{id,...rest}=d;b.set(db.collection(c).doc(id),{...rest,demo:true})}))).catch(err=>toast(errText(err),true));
     return;
   }
   if(t.closest(".cm"))return;
@@ -704,7 +779,6 @@ document.addEventListener("keydown",e=>{
   if(ui.colMenu){const id=ui.colMenu;ui.colMenu=null;render();document.getElementById("cm_"+id)?.focus()}
 });
 document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(!b||b.dataset.tab===tab)return;tab=b.dataset.tab;ui.colMenu=null;try{localStorage.setItem("tab",tab)}catch(_){};render();main.scrollTop=0};
-document.getElementById("exportBtn").onclick=exportXlsx;
 
 /* ---------- форми ---------- */
 let F=null; // {kind,col,id,data,err,sure,fresh}
@@ -887,7 +961,7 @@ sheetRoot.addEventListener("click",async e=>{
     if(F.kind==="product"&&usedProduct(F.id)){F.err="Цей товар є в закупівлях, продажах або наборах. Спершу видаліть ці записи, інакше розрахунки зламаються.";return drawSheet()}
     if(!F.sure){F.sure=true;return drawSheet()}
     const b=t.closest("#delS");b.disabled=true;b.textContent="Видаляю…";
-    try{await db.collection(F.col).doc(F.id).delete();closeSheet()}catch(err){F.err="Не вдалося видалити ("+(err.code||"помилка")+"). Спробуйте ще раз.";F.sure=false;drawSheet()}
+    db.collection(F.col).doc(F.id).delete().catch(err=>toast("Не вдалося видалити: "+errText(err),true));closeSheet();
   }
 });
 sheetRoot.addEventListener("submit",e=>{e.preventDefault();save()});
@@ -926,21 +1000,19 @@ async function save(){
   if(err){F.err=err;return drawSheet()}
   for(const x of Object.keys(d))if(x.startsWith("_")||x==="id")delete d[x];
   if(F.id&&S[F.col].find(x=>x.id===F.id)?.demo)d.demo=true;
-  const btn=document.getElementById("saveS");if(btn){btn.disabled=true;btn.textContent="Зберігаю…"}
-  try{
-    const ref=F.id?db.collection(F.col).doc(F.id):db.collection(F.col).doc();
-    await ref.set(d);closeSheet();
-  }catch(e){
-    if(e.code==="invalid_argument"&&!F.id){canWrite=false;F.err="У вас немає прав змінювати дані. Попросіть власника дати доступ «Contributor» або вище."}
-    else F.err=e.code==="quota_exceeded"?"Базу заповнено. Видаліть старі записи.":"Не вдалося зберегти ("+(e.code||"помилка")+"). Спробуйте ще раз.";
-    drawSheet();
-  }
+  const ref=F.id?db.collection(F.col).doc(F.id):db.collection(F.col).doc();
+  ref.set(d).catch(err=>toast("Не вдалося зберегти: "+errText(err),true));
+  closeSheet();
 }
 
 /* ---------- експорт ---------- */
-async function exportXlsx(){
-  const btn=document.getElementById("exportBtn");
-  if(typeof XLSX==="undefined"){btn.textContent="Excel недоступний";return}
+function saveFile(filename,data,type){
+  const url=URL.createObjectURL(new Blob([data],{type}));
+  const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+function exportXlsx(){
+  if(typeof XLSX==="undefined"){toast("Не вдалося завантажити модуль Excel. Перевірте інтернет",true);return}
   const r2=v=>Math.round((+v||0)*100)/100,wb=XLSX.utils.book_new();
   const add=(nm,rows)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.length?rows:[{}]),nm);
   const t=periodTotals(()=>true);
@@ -951,7 +1023,7 @@ async function exportXlsx(){
   add("Набори",S.kits.flatMap(k=>(k.components||[]).map(c=>({"SKU набору":k.sku,"Назва":k.name,"Ціна":k.price,"Компонент":name(c.productId),"Кількість":c.qty}))));
   add("Витрати",S.expenses.map(e=>({"Дата":e.date,"Категорія":e.category,"Сума":e.amount,"Коментар":e.note})));
   const buf=XLSX.write(wb,{bookType:"xlsx",type:"array"});
-  try{await dl.save({filename:`oblik-${today()}.xlsx`,data:buf})}catch(e){if(e.code!=="declined")btn.textContent="Не вдалося"}
+  saveFile(`oblik-${today()}.xlsx`,buf,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 }
 
 /* ---------- підказки: наведення мишею, фокус з клавіатури, утримання пальцем або натискання на ⓘ ---------- */
@@ -1005,28 +1077,189 @@ document.addEventListener("click",e=>{
 document.addEventListener("keydown",e=>{const ti=e.target.closest?.(".ti");if(ti&&(e.key==="Enter"||e.key===" ")){e.preventDefault();tipFor===ti?hideTip():showTip(ti)}});
 
 /* ---------- запуск ---------- */
-function setSync(cls,txt){
-  const s=document.getElementById("sync");s.className="sync "+cls;s.querySelector("span").textContent=txt;
-  s.dataset.tip=cls==="ok"?"Усі зміни зберігаються автоматично й одразу видні на інших пристроях":"Дані зараз не зберігаються. Перевірте інтернет і оновіть сторінку";
+function setSync(cls,txt,tip){
+  const s=document.getElementById("sync");s.className="sync "+cls;s.querySelector("span").textContent=txt;s.dataset.tip=tip;
 }
-try{const t=localStorage.getItem("tab");if(t&&VIEWS[t])tab=t}catch(_){}
-render();
-(async()=>{
-  if(!window.claude?.use){setSync("bad","Відкрийте сторінку в Claude");return}
-  db=await claude.use("db");
-  if(!db){setSync("bad","Сховище недоступне");return}
-  claude.use("downloads").then(d=>{dl=d;render()});
-  claude.use("user").then(async u=>{if(!u)return;const c=await u.can("data.write");if(c===false){canWrite=false;render()}});
-  const timer=setTimeout(()=>setSync("bad","Немає з'єднання"),10000);
+const pendingCols=new Set();
+function refreshSync(){
+  if(!navigator.onLine)return setSync("bad","Офлайн","Немає інтернету. Зміни збережуться на цьому пристрої й відправляться, коли з'явиться зв'язок");
+  if(firstLoad.size<COLS.length)return setSync("","Завантаження…","Завантажую дані");
+  if(pendingCols.size)return setSync("","Зберігаю…","Відправляю зміни на сервер");
+  setSync("ok","Збережено","Усі зміни збережені на сервері й одразу видні на інших пристроях");
+}
+addEventListener("online",refreshSync);addEventListener("offline",refreshSync);
+
+let toastT=null;
+function toast(msg,bad){
+  const r=document.getElementById("toastRoot");clearTimeout(toastT);
+  r.innerHTML=`<div class="toast${bad?" bad":""}" role="status">${esc(msg)}</div>`;
+  toastT=setTimeout(()=>r.innerHTML="",bad?6000:3000);
+}
+function errText(e){
+  const c=e?.code||"";
+  if(c.includes("permission-denied"))return "немає доступу. Увійдіть під акаунтом, якому відкрито облік";
+  if(c.includes("resource-exhausted"))return "вичерпано безкоштовний ліміт Firebase на сьогодні";
+  if(c.includes("unavailable"))return "сервер недоступний, спробуйте пізніше";
+  return e?.message||String(e);
+}
+function confirmBox(title,text,ok,danger){
+  return new Promise(res=>{
+    const w=document.createElement("div");w.className="confirm";
+    w.innerHTML=`<div class="confirm-c" role="alertdialog" aria-modal="true"><h2>${esc(title)}</h2><p>${esc(text)}</p><div class="confirm-f"><button class="btn" data-r="0">Скасувати</button><button class="btn ${danger?"danger sure":"primary"}" data-r="1">${esc(ok)}</button></div></div>`;
+    const done=v=>{w.remove();document.removeEventListener("keydown",key,true);res(v)};
+    const key=e=>{if(e.key==="Escape"){e.stopPropagation();done(false)}};
+    w.addEventListener("click",e=>{const b=e.target.closest("[data-r]");if(b)done(b.dataset.r==="1");else if(e.target===w)done(false)});
+    document.addEventListener("keydown",key,true);
+    document.body.appendChild(w);w.querySelector('[data-r="1"]').focus();
+  });
+}
+// Firestore пише до 500 змін за раз
+async function writeBatches(ops){
+  for(let i=0;i<ops.length;i+=450){const b=db.batch();ops.slice(i,i+450).forEach(f=>f(b));await b.commit()}
+}
+
+/* ---------- приклади даних ---------- */
+const DEMO=(()=>{
+  const comps=[{productId:"demo-p1",qty:1},{productId:"demo-p2",qty:1},{productId:"demo-p3",qty:1},{productId:"demo-p4",qty:1}];
+  const ln=(kind,refId,qty,price,o={})=>({kind,refId,qty,price,discount:0,returned:0,refund:0,...(kind==="kit"?{components:comps}:{}),...o});
+  return{
+    products:[
+      {id:"demo-p1",sku:"CND-001",name:"Свічка соєва «Лаванда» 200 мл",category:"Свічки",supplier:"ВоскЛаб",price:390,minStock:5},
+      {id:"demo-p2",sku:"CND-002",name:"Свічка соєва «Кедр» 200 мл",category:"Свічки",supplier:"ВоскЛаб",price:390,minStock:5},
+      {id:"demo-p3",sku:"DIF-001",name:"Аромадифузор 100 мл",category:"Аромати",supplier:"АромаДім",price:520,minStock:3},
+      {id:"demo-p4",sku:"BOX-001",name:"Подарункова коробка крафт",category:"Пакування",supplier:"ПакСвіт",price:0,minStock:10}],
+    kits:[{id:"demo-k1",sku:"SET-001",name:"Набір «Затишок»: 2 свічки + дифузор",price:1190,components:comps}],
+    purchases:[
+      {id:"demo-b1",date:"2026-09-05",batch:"ZAK-001",supplier:"ВоскЛаб",shipping:120,note:"",lines:[{productId:"demo-p1",qty:20,price:150,extra:0},{productId:"demo-p2",qty:15,price:160,extra:0}]},
+      {id:"demo-b2",date:"2026-09-08",batch:"ZAK-002",supplier:"АромаДім",shipping:80,note:"",lines:[{productId:"demo-p3",qty:10,price:230,extra:0},{productId:"demo-p4",qty:20,price:35,extra:0}]},
+      {id:"demo-b3",date:"2026-10-20",batch:"ZAK-003",supplier:"ВоскЛаб",shipping:90,note:"Ціна зросла",lines:[{productId:"demo-p1",qty:15,price:165,extra:0}]}],
+    orders:[
+      {id:"demo-o1",date:"2026-09-12",number:"ORD-001",channel:"Instagram",note:"",commission:0,shipCost:60,lines:[ln("product","demo-p1",2,390)]},
+      {id:"demo-o2",date:"2026-09-25",number:"ORD-002",channel:"Rozetka",note:"",commission:145,shipCost:0,lines:[ln("kit","demo-k1",1,1190)]},
+      {id:"demo-o3",date:"2026-10-03",number:"ORD-003",channel:"Сайт",note:"",commission:28,shipCost:0,lines:[ln("product","demo-p3",2,520,{discount:40}),ln("product","demo-p2",3,390,{returned:1,refund:390})]},
+      {id:"demo-o4",date:"2026-10-28",number:"ORD-004",channel:"Instagram",note:"",commission:0,shipCost:75,lines:[ln("kit","demo-k1",3,1190,{discount:100})]},
+      {id:"demo-o5",date:"2026-11-14",number:"ORD-005",channel:"Rozetka",note:"",commission:210,shipCost:0,lines:[ln("product","demo-p1",5,390),ln("product","demo-p3",3,520)]}],
+    expenses:[
+      {id:"demo-e1",date:"2026-09-30",category:"Реклама",amount:1500,note:"Таргет Instagram"},
+      {id:"demo-e2",date:"2026-10-01",category:"Сервіси та підписки",amount:450,note:"Хорошоп"},
+      {id:"demo-e3",date:"2026-11-01",category:"Сервіси та підписки",amount:450,note:"Хорошоп"},
+      {id:"demo-e4",date:"2026-11-10",category:"Реклама",amount:900,note:""}],
+  };
+})();
+
+/* ---------- резервні копії ---------- */
+function backupJson(){
+  const data={};for(const c of COLS)data[c]=S[c].map(d=>{const o={};for(const[k,v]of Object.entries(d))if(!k.startsWith("_"))o[k]=v;return o});
+  saveFile(`oblik-backup-${today()}.json`,JSON.stringify({app:"oblik-magazynu",version:1,exportedAt:new Date().toISOString(),data},null,1),"application/json");
+}
+async function restoreJson(file){
+  let j;try{j=JSON.parse(await file.text())}catch(_){return toast("Це не файл резервної копії",true)}
+  if(j?.app!=="oblik-magazynu"||!j.data)return toast("Це не файл резервної копії обліку",true);
+  const ops=[],cnt={};
+  for(const c of COLS)for(const d of j.data[c]||[]){
+    if(!d||typeof d.id!=="string"||!d.id||d.id.includes("/"))continue;
+    const{id,...rest}=d;ops.push(b=>b.set(db.collection(c).doc(id),rest));cnt[c]=(cnt[c]||0)+1;
+  }
+  if(!ops.length)return toast("У файлі немає записів",true);
+  const when=j.exportedAt?new Date(j.exportedAt).toLocaleString("uk-UA"):"невідомо коли";
+  const ok=await confirmBox("Відновити з копії?",`Копія від ${when}: ${ops.length} записів.\nЗаписи з копії замінять однакові записи в базі. Записи, яких немає в копії, залишаться.`,"Відновити");
+  if(!ok)return;
+  writeBatches(ops).then(()=>toast(`Відновлено ${ops.length} записів`)).catch(err=>toast("Не вдалося відновити: "+errText(err),true));
+}
+
+/* ---------- меню акаунта ---------- */
+const userBtn=document.getElementById("userBtn"),userMenu=document.getElementById("userMenu");
+function setMenu(open){userMenu.hidden=!open;userBtn.setAttribute("aria-expanded",open);if(open){hideTip();userMenu.querySelector("button")?.focus()}}
+userBtn.onclick=e=>{e.stopPropagation();setMenu(userMenu.hidden)};
+document.addEventListener("click",e=>{if(!userMenu.hidden&&!e.target.closest(".um"))setMenu(false)});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!userMenu.hidden){setMenu(false);userBtn.focus()}});
+userMenu.onclick=async e=>{
+  const a=e.target.closest("[data-act]")?.dataset.act;if(!a)return;setMenu(false);
+  if(a==="excel")exportXlsx();
+  if(a==="backup")backupJson();
+  if(a==="restore")document.getElementById("restoreFile").click();
+  if(a==="logout"&&await confirmBox("Вийти з обліку?","На цьому пристрої доведеться знову ввести email і пароль.","Вийти"))auth.signOut();
+};
+document.getElementById("restoreFile").onchange=e=>{const f=e.target.files[0];e.target.value="";if(f)restoreJson(f)};
+
+/* ---------- вхід і запуск ---------- */
+const loginEl=document.getElementById("login"),headerEl=document.getElementById("appHeader");
+function loginMsg(text,cls){const m=document.getElementById("loginMsg");m.hidden=!text;m.textContent=text||"";m.className="login-msg "+(cls||"bad")}
+function authErr(e){
+  const c=e?.code||"";
+  if(["auth/invalid-credential","auth/wrong-password","auth/user-not-found","auth/invalid-login-credentials"].includes(c))return "Невірний email або пароль.";
+  if(c==="auth/invalid-email")return "Перевірте email.";
+  if(c==="auth/too-many-requests")return "Забагато спроб. Зачекайте кілька хвилин або змініть пароль через «Забули пароль?».";
+  if(c==="auth/network-request-failed")return "Немає інтернету.";
+  if(c==="auth/user-disabled")return "Цей акаунт вимкнено.";
+  return "Не вдалося увійти ("+c+").";
+}
+function showLogin(note){
+  headerEl.hidden=true;main.hidden=true;loginEl.hidden=false;closeSheet();
+  if(note)document.getElementById("loginNote").textContent=note;
+  if(!touch)document.getElementById("loginEmail").focus();
+}
+function showApp(user){
+  loginEl.hidden=true;headerEl.hidden=false;main.hidden=false;loginMsg("");
+  document.getElementById("loginPass").value="";
+  document.getElementById("userEmail").textContent=user.email||"";
+  userBtn.textContent=(user.email||"?")[0];
+  render();
+}
+document.getElementById("loginForm").onsubmit=async e=>{
+  e.preventDefault();if(!auth)return;
+  const email=document.getElementById("loginEmail").value.trim(),pass=document.getElementById("loginPass").value;
+  if(!email||!pass)return loginMsg("Вкажіть email і пароль.");
+  const b=document.getElementById("loginBtn");b.disabled=true;b.textContent="Входжу…";loginMsg("");
+  try{await auth.signInWithEmailAndPassword(email,pass)}catch(err){loginMsg(authErr(err))}
+  b.disabled=false;b.textContent="Увійти";
+};
+document.getElementById("resetBtn").onclick=async()=>{
+  if(!auth)return;
+  const email=document.getElementById("loginEmail").value.trim();
+  if(!email)return loginMsg("Впишіть email, і ми надішлемо на нього посилання для зміни пароля.");
+  try{await auth.sendPasswordResetEmail(email);loginMsg("Якщо цей email має доступ, на нього прийде лист для зміни пароля. Перевірте й «Спам».","good")}
+  catch(err){loginMsg(authErr(err))}
+};
+
+let unsubs=[];
+function startData(){
+  const timer=setTimeout(()=>{if(firstLoad.size<COLS.length)setSync("bad","Немає з'єднання","Не вдається завантажити дані. Перевірте інтернет")},10000);
   let pending=false;
   for(const c of COLS){
-    db.collection(c).onSnapshot(snap=>{
+    unsubs.push(db.collection(c).onSnapshot({includeMetadataChanges:true},snap=>{
       S[c]=snap.docs.map(d=>({id:d.id,...d.data()}));
       if(!snap.metadata.fromCache)firstLoad.add(c);
-      if(firstLoad.size===COLS.length){clearTimeout(timer);setSync("ok","Збережено")}
+      if(snap.metadata.hasPendingWrites)pendingCols.add(c);else pendingCols.delete(c);
+      if(firstLoad.size===COLS.length)clearTimeout(timer);
+      refreshSync();
       // таймер, а не requestAnimationFrame: той не спрацьовує, поки вкладка у фоні
       if(!pending){pending=true;setTimeout(()=>{pending=false;render();updateDerived()},16)}
-    },e=>{clearTimeout(timer);setSync("bad","Помилка зв'язку ("+e.code+")")});
+    },err=>{
+      clearTimeout(timer);
+      if(err.code==="permission-denied")showLogin("Цей акаунт не має доступу до обліку. Увійдіть іншим.");
+      else setSync("bad","Помилка зв'язку","Помилка зв'язку з базою: "+err.code);
+    }));
   }
+}
+function stopData(){unsubs.forEach(u=>u());unsubs=[];for(const c of COLS)S[c]=[];firstLoad.clear();pendingCols.clear()}
+
+try{const t=localStorage.getItem("tab");if(t&&VIEWS[t])tab=t}catch(_){}
+(()=>{
+  if(!window.firebase||!window.FIREBASE_CONFIG?.apiKey){
+    showLogin("Сайт ще не підключено до бази. Додайте налаштування Firebase у firebase-config.js.");
+    document.getElementById("loginBtn").disabled=true;return;
+  }
+  firebase.initializeApp(window.FIREBASE_CONFIG);
+  auth=firebase.auth();db=firebase.firestore();
+  // копія бази на пристрої: сторінка відкривається швидко й працює без інтернету
+  db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+  auth.onAuthStateChanged(user=>{
+    stopData();
+    if(user){showApp(user);refreshSync();startData()}
+    else showLogin("Увійдіть, щоб продовжити.");
+  });
 })();
 </script>
+</body>
+</html>

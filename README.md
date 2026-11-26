@@ -2,12 +2,15 @@
 
 Облік товарів, закупівель, продажів, наборів і витрат невеликого інтернет-магазину. Собівартість і прибуток рахуються автоматично.
 
-Сторінка працює як артефакт Claude: https://claude.ai/artifact/7HP5xydXt2aQb7GddXJZ2M
-Дані зберігаються в базі артефакту (колекції `products`, `kits`, `purchases`, `orders`, `expenses`), а не в цьому репозиторії.
+Окремий сайт на Firebase: вхід по email і паролю, дані в Firestore, хостинг на Firebase Hosting. Доступ мають лише акаунти, перелічені у `firestore.rules`.
 
 ## Файли
 
-- `index.html` — уся сторінка: розмітка, стилі й логіка в одному файлі.
+- `public/index.html` — уся сторінка: розмітка, стилі й логіка.
+- `public/firebase-config.js` — налаштування підключення до Firebase (не секретні).
+- `firestore.rules` — хто може читати й змінювати дані.
+- `firebase.json` — налаштування хостингу й правил.
+- `dev/build.py` — локальна копія сайту з тестовою базою в пам'яті для перевірки змін.
 
 ## Як рахується
 
@@ -17,6 +20,33 @@
 - Чистий результат = прибуток від продажів − інші витрати.
 - Набір при продажі списує компоненти зі складу; склад набору зберігається в кожному продажі.
 
+## Перше налаштування Firebase
+
+1. Створити проєкт на https://console.firebase.google.com (Google Analytics не потрібен).
+2. **Authentication → Sign-in method:** увімкнути «Email/Password».
+3. **Authentication → Users → Add user:** додати два акаунти (власник і партнер) з паролями.
+4. **Authentication → Settings → User actions:** зняти «Enable create (sign-up)», щоб ніхто інший не міг зареєструватися.
+5. **Firestore Database → Create database:** регіон `eur3 (europe-west)`, production mode.
+6. **Project settings → Your apps → Web app:** зареєструвати застосунок і вписати його `apiKey`, `authDomain`, `projectId`, `appId` у `public/firebase-config.js`.
+7. Вписати обидва email у `firestore.rules` замість `OWNER_EMAIL` і `PARTNER_EMAIL`.
+8. Опублікувати сайт і правила:
+
+```bash
+firebase deploy --project <project-id>
+```
+
 ## Оновлення
 
-Після змін у `index.html` сторінку треба опублікувати заново в той самий артефакт (через Claude).
+Після змін у `public/` — знову `firebase deploy --project <project-id>`.
+
+Перевірити зміни локально без Firebase:
+
+```bash
+python3 dev/build.py && python3 -m http.server 8765 --directory dev/site
+```
+
+Відкрити http://127.0.0.1:8765 (або `/?login` для екрана входу, пароль `test`).
+
+## Резервні копії
+
+Меню акаунта (кружечок угорі праворуч) → «Зберегти резервну копію» вивантажує всі дані в JSON-файл. «Відновити з копії…» завантажує їх назад.
