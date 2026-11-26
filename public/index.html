@@ -247,6 +247,22 @@ th[aria-sort="ascending"] .arr,th[aria-sort="descending"] .arr{opacity:1}
 .tb-2 .seg{flex:none}
 .tb-2 .seg button{padding:7px 12px;font-size:13.5px}
 
+/* поле вибору з пошуком */
+.cb{flex:1;min-width:0}
+.line-h{position:relative}
+.cb-in{padding-right:34px;text-overflow:ellipsis;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:12px 8px}
+.cb-in:not(:focus):placeholder-shown{border-style:dashed}
+.cb-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.18);max-height:min(300px,45vh);overflow:auto;padding:4px;overscroll-behavior:contain}
+.cb-g{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px 10px 4px;font-weight:600}
+.cb-o{padding:8px 10px;border-radius:7px;cursor:pointer;display:flex;flex-direction:column;gap:1px;font-size:14.5px;line-height:1.35}
+.cb-o .m{font-size:12.5px;color:var(--muted)}
+.cb-o.hi,.cb-o:hover{background:var(--sunken)}
+.cb-o.cur .nm{font-weight:600}
+.cb-o.new{font-weight:600;border-top:1px solid var(--line);margin-top:4px;padding-top:11px}
+.cb-empty{padding:10px;color:var(--muted);font-size:13.5px}
+.line-h .cb-new{flex:none}
+@media (max-width:420px){.line-h .cb-new .t{display:none}}
+
 /* підказки */
 .tip{position:fixed;z-index:100;left:0;top:0;max-width:min(300px,calc(100vw - 16px));background:var(--ink);color:var(--bg);font-size:13px;font-weight:500;line-height:1.45;letter-spacing:0;text-transform:none;padding:8px 11px;border-radius:8px;pointer-events:none;white-space:pre-line;box-shadow:0 6px 20px rgba(0,0,0,.22);opacity:0;transition:opacity .12s}
 .tip.on{opacity:1}
@@ -870,11 +886,71 @@ function newProductBox(i){
     ${n.err?`<p class="err">${esc(n.err)}</p>`:""}
     <div><button type="button" class="btn primary" data-ncreate="${i}">Додати в довідник</button></div></div>`;
 }
+// поле вибору: пошук за назвою чи SKU, групи, залишок, створення нового
+const cbVal=l=>F.kind==="order"?(l.refId?(l.kind==="kit"?"k:":"p:")+l.refId:""):(l.productId||"");
+function cbLabel(l){
+  const v=cbVal(l);if(!v)return "";
+  const id=F.kind==="order"?v.slice(2):v,x=F.kind==="order"&&v[0]==="k"?S.kits.find(k=>k.id===id):S.products.find(p=>p.id===id);
+  return x?`${x.sku} — ${x.name}`:"(видалений запис)";
+}
+function cbItems(q){
+  const s=q.trim().toLowerCase(),hit=x=>!s||(x.sku||"").toLowerCase().includes(s)||(x.name||"").toLowerCase().includes(s);
+  const pre=F.kind==="order"?"p:":"",ps=sortedProducts().filter(hit);
+  const groups=[["Товари для продажу",ps.filter(p=>!isMat(p)).map(p=>({v:pre+p.id,x:p,m:`${qty(C.P[p.id]?.stock||0)} шт.`}))]];
+  if(F.kind==="order")groups.push(["Набори",[...S.kits].sort((a,b)=>(a.sku||"").localeCompare(b.sku||"","uk",{numeric:true})).filter(hit).map(k=>({v:"k:"+k.id,x:k,m:`можна зібрати ${qty(C.K[k.id]?.canBuild||0)}`}))]);
+  groups.push([F.kind==="order"?"Пакування й матеріали (списання)":"Пакування й матеріали",ps.filter(isMat).map(p=>({v:pre+p.id,x:p,m:`${qty(C.P[p.id]?.stock||0)} шт.`}))]);
+  return groups.filter(g=>g[1].length);
+}
+function cbField(i){
+  const l=F.data[linesKey()][i],ph=F.kind==="order"?"Товар, набір або матеріал":"Товар або матеріал";
+  return `<div class="cb"><input id="l_${i}_cb" class="cb-in" data-cbi="${i}" value="${esc(cbLabel(l))}" placeholder="${ph}: почніть вводити" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cbl_${i}" aria-autocomplete="list" aria-label="${ph}">
+    <div class="cb-list" id="cbl_${i}" role="listbox" hidden></div></div>
+    <button type="button" class="btn cb-new" data-cbnew="${i}" data-tip="Створити новий товар або матеріал і додати його в довідник">+<span class="t"> Новий</span></button>`;
+}
+let CB=null; // {i,q,hi,opts}
+function cbOpen(i,q){
+  const list=document.getElementById("cbl_"+i),inp=document.getElementById("l_"+i+"_cb");if(!list||!inp)return;
+  const cur=cbVal(F.data[linesKey()][i]),groups=cbItems(q),opts=[];
+  let html="";
+  for(const[g,items]of groups){html+=`<div class="cb-g">${esc(g)}</div>`;for(const it of items){const k=opts.length;opts.push(it.v);html+=`<div class="cb-o${it.v===cur?" cur":""}" role="option" id="cbo_${i}_${k}" data-cbo="${k}"><span class="nm">${esc(it.x.name)}</span><span class="m">${esc(it.x.sku)} · ${it.m}</span></div>`}}
+  if(!opts.length)html+=`<div class="cb-empty">${q.trim()?"Нічого не знайдено.":"Довідник поки порожній."}</div>`;
+  const k=opts.length;opts.push("__new");
+  html+=`<div class="cb-o new" role="option" id="cbo_${i}_${k}" data-cbo="${k}">${q.trim()?`+ Створити «${esc(q.trim())}»`:"+ Створити новий товар або матеріал"}</div>`;
+  let hi=CB&&CB.i===i?Math.min(CB.hi,opts.length-1):-1;
+  if(q.trim()&&hi<0)hi=0;
+  CB={i,q,hi,opts};
+  list.innerHTML=html;list.hidden=false;inp.setAttribute("aria-expanded","true");cbHi();
+}
+function cbHi(){
+  if(!CB)return;
+  document.querySelectorAll(`#cbl_${CB.i} .cb-o`).forEach((o,k)=>o.classList.toggle("hi",k===CB.hi));
+  const inp=document.getElementById("l_"+CB.i+"_cb"),o=document.getElementById(`cbo_${CB.i}_${CB.hi}`);
+  if(o){inp?.setAttribute("aria-activedescendant",o.id);o.scrollIntoView({block:"nearest"})}else inp?.removeAttribute("aria-activedescendant");
+}
+function cbClose(restore=true){
+  if(!CB)return;const{i}=CB;CB=null;
+  const list=document.getElementById("cbl_"+i),inp=document.getElementById("l_"+i+"_cb");
+  if(list){list.hidden=true;list.innerHTML=""}
+  if(inp){inp.setAttribute("aria-expanded","false");inp.removeAttribute("aria-activedescendant");if(restore&&F)inp.value=cbLabel(F.data[linesKey()][i])}
+}
+function cbPick(k){
+  if(!CB)return;const{i,q,opts}=CB,v=opts[k];if(v===undefined)return;
+  const l=F.data[linesKey()][i];cbClose(false);
+  document.activeElement?.blur(); // інакше перебудова форми поверне фокус у поле й знову відкриє список
+  if(v==="__new"){l._new={name:q.trim(),type:"goods"};drawSheet();const n=document.getElementById(`l_${i}_newname`);n?.focus();return}
+  applyPick(l,v);drawSheet();
+  const nx=document.getElementById(`l_${i}_qty`);nx?.focus({preventScroll:touch});nx?.select?.();
+}
+function applyPick(l,v){
+  if(F.kind!=="order"){l.productId=v;return}
+  const[kd,id]=v.split(":");l.kind=kd==="k"?"kit":"product";l.refId=id||"";delete l.components;
+  if(!num(l.price)){const src=kd==="k"?S.kits.find(x=>x.id===id):S.products.find(x=>x.id===id);if(src&&num(src.price)&&!isMat(src))l.price=String(src.price)}
+}
 function createInline(i){
   const l=F.data[linesKey()][i],n=l._new,nm=(n.name||"").trim();
   if(!nm){n.err="Вкажіть назву.";drawSheet();document.getElementById(`l_${i}_newname`)?.focus();return}
   const dup=S.products.find(p=>(p.name||"").trim().toLowerCase()===nm.toLowerCase());
-  if(dup){n.err=`«${dup.name}» вже є в довіднику (${dup.sku}). Оберіть його зі списку.`;drawSheet();return}
+  if(dup){delete l._new;applyPick(l,F.kind==="order"?"p:"+dup.id:dup.id);drawSheet();document.getElementById(`l_${i}_qty`)?.focus();toast(`«${dup.name}» вже є в довіднику, обрано його`);return}
   const ref=db.collection("products").doc(),mat=n.type==="material";
   const p={sku:autoSku(n.type),name:nm,type:mat?"material":"goods",category:mat?"Пакування":"",supplier:F.kind==="purchase"?(F.data.supplier||"").trim():"",price:0,minStock:0};
   ref.set(p).catch(err=>toast("Не вдалося створити: "+errText(err),true));
@@ -957,14 +1033,14 @@ function sheetBody(){
     <p class="hint">Пакування для боксів краще вносити як закупівлю матеріалу: тоді видно залишок, а вартість потрапляє в собівартість бокса. Сюди — те, що не рахуєте поштучно. Доставку від постачальника вносьте в закупівлю, доставку до покупця — у продаж.</p>`;
   if(k==="kit")return `<div class="fg three">${fld("sku","SKU набору *")}${fld("name","Назва *")}${fld("price","Ціна, ₴",{num:true,tip:"Ціна продажу набору. Підставляється в продаж автоматично"})}</div>
     <div class="sec"><div class="sec-h"><h3>Склад набору${ti("Товари й пакування, з яких складається набір. Додайте сюди коробку та інше пакування, щоб їх вартість ішла в собівартість набору")}</h3></div><div class="lines">${d.components.map((c,i)=>`<div class="line">
-      ${c._new?newProductBox(i):`<div class="line-h"><select id="l_${i}_productId" data-l="${i}" data-lk="productId" aria-label="Товар або матеріал">${productOptions(c.productId)}</select>${removeBtn(i)}</div>`}
+      ${c._new?newProductBox(i):`<div class="line-h">${cbField(i)}${removeBtn(i)}</div>`}
       <div class="line-g">${lfld(i,"qty","Кількість у наборі")}</div><div class="line-i" id="li_${i}">${lineInfo(i)}</div></div>`).join("")}</div>
       <div><button type="button" class="btn" data-add data-tip="Додати ще один товар у набір">+ Компонент</button></div></div>
     <div class="calc" id="calc">${calcHtml()}</div>
     ${F.id?`<p class="hint">Зміна складу не перерахує вже внесені продажі: кожен продаж зберігає склад набору на момент продажу.</p>`:""}`;
   if(k==="purchase")return `<div class="fg three">${fld("date","Дата *",{type:"date"})}${fld("batch","№ партії",{tip:"Номер замовлення в постачальника, щоб легко знайти партію"})}${fld("supplier","Постачальник",{list:"dl_sup"})}</div>
     <div class="sec"><div class="sec-h"><h3>Товари й матеріали в партії</h3></div><div class="lines">${d.lines.map((l,i)=>`<div class="line">
-      ${l._new?newProductBox(i):`<div class="line-h"><select id="l_${i}_productId" data-l="${i}" data-lk="productId" aria-label="Товар або матеріал">${productOptions(l.productId)}</select>${removeBtn(i)}</div>`}
+      ${l._new?newProductBox(i):`<div class="line-h">${cbField(i)}${removeBtn(i)}</div>`}
       <div class="line-g">${lfld(i,"qty","Кількість, шт.")}${lfld(i,"price","Ціна за шт., ₴")}${lfld(i,"extra","Дод. витрати, ₴")}</div>
       <div class="line-i" id="li_${i}">${lineInfo(i)}</div></div>`).join("")}</div>
       <div><button type="button" class="btn" data-add data-tip="Додати ще один товар або матеріал у партію">+ Рядок</button></div></div>
@@ -975,11 +1051,7 @@ function sheetBody(){
     <div class="sec"><div class="sec-h"><h3>Позиції</h3></div><div class="lines">${d.lines.map((l,i)=>{
       const val=l.refId?(l.kind==="kit"?"k:":"p:")+l.refId:"";
       return `<div class="line">
-      ${l._new?newProductBox(i):`<div class="line-h"><select id="l_${i}_ref" data-l="${i}" data-lk="ref" aria-label="Товар, набір або матеріал"><option value="">Оберіть товар або набір</option>
-        ${productGroups(val,"p:").replace(/(<optgroup label="Пакування[^"]*">[\s\S]*?<\/optgroup>)/,"")}
-        ${S.kits.length?`<optgroup label="Набори">${S.kits.map(x=>opt("k:"+x.id,val,x)).join("")}</optgroup>`:""}
-        ${(productGroups(val,"p:").match(/<optgroup label="Пакування[^"]*">[\s\S]*?<\/optgroup>/)||[""])[0]}
-        <option value="__new">+ Створити новий…</option></select>${removeBtn(i)}</div>`}
+      ${l._new?newProductBox(i):`<div class="line-h">${cbField(i)}${removeBtn(i)}</div>`}
       <div class="line-g">${lfld(i,"qty","Кількість")}${lfld(i,"price","Ціна за шт., ₴")}${lfld(i,"discount","Знижка, ₴")}</div>
       ${l._ret?`<div class="line-g">${lfld(i,"returned","Повернуто, шт.")}${lfld(i,"refund","Повернуто грошей, ₴")}</div>`:""}
       <div class="line-i"><span id="li_${i}" style="display:contents">${lineInfo(i)}</span>${l._ret?"":`<button type="button" class="link" data-ret="${i}" data-tip="Вказати, скільки товару повернулось на склад і скільки грошей повернули покупцю">+ Повернення</button>`}</div></div>`}).join("")}</div>
@@ -990,6 +1062,7 @@ function sheetBody(){
   return "";
 }
 function drawSheet(){
+  CB=null;
   const root=document.getElementById("sheetRoot");
   const prevB=root.querySelector(".sheet-b"),scroll=prevB?prevB.scrollTop:0;
   const ae=document.activeElement,fid=ae&&root.contains(ae)?ae.id:null;
@@ -1008,8 +1081,21 @@ function drawSheet(){
   if(tipFor&&!tipFor.isConnected)hideTip();
 }
 const sheetRoot=document.getElementById("sheetRoot");
+sheetRoot.addEventListener("focusin",e=>{
+  const i=e.target;if(!F||i.dataset?.cbi===undefined)return;
+  const n=+i.dataset.cbi;if(CB&&CB.i!==n)cbClose();
+  if(!CB){cbOpen(n,"");i.select()}
+  if(touch)setTimeout(()=>i.scrollIntoView({block:"start",behavior:"smooth"}),250);
+});
+sheetRoot.addEventListener("focusout",e=>{
+  const i=e.target;if(i.dataset?.cbi===undefined)return;
+  setTimeout(()=>{if(CB&&CB.i===+i.dataset.cbi&&document.activeElement!==i)cbClose()},120);
+});
+// mousedown, а не click: інакше поле втратить фокус раніше, ніж спрацює вибір
+sheetRoot.addEventListener("mousedown",e=>{const o=e.target.closest?.("[data-cbo]");if(o){e.preventDefault();cbPick(+o.dataset.cbo)}});
 sheetRoot.addEventListener("input",e=>{
   if(!F)return;const i=e.target;
+  if(i.dataset.cbi!==undefined){if(CB)CB.hi=-1;cbOpen(+i.dataset.cbi,i.value);return}
   if(i.dataset.nn!==undefined){const n=F.data[linesKey()][+i.dataset.nn]._new;if(n)n.name=i.value;return}
   if(i.dataset.k){F.data[i.dataset.k]=i.value;updateDerived()}
   else if(i.dataset.l&&i.tagName!=="SELECT"){F.data[linesKey()][+i.dataset.l][i.dataset.lk]=i.value;updateDerived()}
@@ -1033,8 +1119,9 @@ sheetRoot.addEventListener("click",async e=>{
   const nt=t.closest("[data-ntype]");if(nt){F.data[linesKey()][+nt.dataset.l]._new.type=nt.dataset.v;drawSheet();document.getElementById(`l_${nt.dataset.l}_newname`)?.focus();return}
   const nc=t.closest("[data-ncancel]");if(nc){delete F.data[linesKey()][+nc.dataset.ncancel]._new;return drawSheet()}
   const nk=t.closest("[data-ncreate]");if(nk)return createInline(+nk.dataset.ncreate);
+  const cn=t.closest("[data-cbnew]");if(cn){const n=+cn.dataset.cbnew;cbClose(false);arr[n]._new={name:"",type:"goods"};drawSheet();document.getElementById(`l_${n}_newname`)?.focus();return}
   const del=t.closest("[data-del]");if(del){arr.splice(+del.dataset.del,1);if(!arr.length)arr.push(blankLine[F.kind]());return drawSheet()}
-  if(t.closest("[data-add]")){arr.push(blankLine[F.kind]());drawSheet();const n=arr.length-1;document.getElementById(`l_${n}_${F.kind==="order"?"ref":"productId"}`)?.focus();return}
+  if(t.closest("[data-add]")){arr.push(blankLine[F.kind]());drawSheet();document.getElementById(`l_${arr.length-1}_cb`)?.focus();return}
   const rt=t.closest("[data-ret]");if(rt){arr[+rt.dataset.ret]._ret=true;drawSheet();document.getElementById(`l_${rt.dataset.ret}_returned`)?.focus();return}
   if(t.closest("#delS")){
     if(F.kind==="product"&&usedProduct(F.id)){F.err="Цей товар є в закупівлях, продажах або наборах. Спершу видаліть ці записи, інакше розрахунки зламаються.";return drawSheet()}
@@ -1045,7 +1132,19 @@ sheetRoot.addEventListener("click",async e=>{
 });
 sheetRoot.addEventListener("submit",e=>{e.preventDefault();save()});
 // Enter у назві нового запису створює його, а не зберігає всю форму
-sheetRoot.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.dataset?.nn!==undefined){e.preventDefault();createInline(+e.target.dataset.nn)}});
+sheetRoot.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&e.target.dataset?.nn!==undefined){e.preventDefault();createInline(+e.target.dataset.nn);return}
+  if(e.target.dataset?.cbi===undefined)return;
+  const n=+e.target.dataset.cbi;
+  if(!CB&&(e.key==="ArrowDown"||e.key==="Enter")){e.preventDefault();cbOpen(n,"");return}
+  if(!CB)return;
+  if(e.key==="ArrowDown"){e.preventDefault();CB.hi=Math.min(CB.hi+1,CB.opts.length-1);cbHi()}
+  else if(e.key==="ArrowUp"){e.preventDefault();CB.hi=Math.max(CB.hi-1,0);cbHi()}
+  else if(e.key==="Enter"){e.preventDefault();if(CB.hi>=0)cbPick(CB.hi)}
+  // Esc закриває лише список, а не всю форму
+  else if(e.key==="Escape"){e.preventDefault();e.stopPropagation();cbClose()}
+  else if(e.key==="Tab")cbClose();
+});
 function usedProduct(pid){
   return S.purchases.some(b=>(b.lines||[]).some(l=>l.productId===pid))||S.orders.some(o=>(o.lines||[]).some(l=>l.refId===pid||(l.components||[]).some(c=>c.productId===pid)))||S.kits.some(k=>(k.components||[]).some(c=>c.productId===pid));
 }
@@ -1211,7 +1310,7 @@ const DEMO=(()=>{
       {id:"demo-p1",sku:"CND-001",name:"Свічка соєва «Лаванда» 200 мл",category:"Свічки",supplier:"ВоскЛаб",price:390,minStock:5},
       {id:"demo-p2",sku:"CND-002",name:"Свічка соєва «Кедр» 200 мл",category:"Свічки",supplier:"ВоскЛаб",price:390,minStock:5},
       {id:"demo-p3",sku:"DIF-001",name:"Аромадифузор 100 мл",category:"Аромати",supplier:"АромаДім",price:520,minStock:3},
-      {id:"demo-p4",sku:"BOX-001",name:"Подарункова коробка крафт",category:"Пакування",supplier:"ПакСвіт",price:0,minStock:10}],
+      {id:"demo-p4",sku:"BOX-001",name:"Подарункова коробка крафт",type:"material",category:"Пакування",supplier:"ПакСвіт",price:0,minStock:10}],
     kits:[{id:"demo-k1",sku:"SET-001",name:"Набір «Затишок»: 2 свічки + дифузор",price:1190,components:comps}],
     purchases:[
       {id:"demo-b1",date:"2026-09-05",batch:"ZAK-001",supplier:"ВоскЛаб",shipping:120,note:"",lines:[{productId:"demo-p1",qty:20,price:150,extra:0},{productId:"demo-p2",qty:15,price:160,extra:0}]},
