@@ -107,7 +107,6 @@ label.f{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:
 .tb-1{display:flex;align-items:center;gap:10px;min-width:0}
 .tb-1 h2{flex:1;min-width:0}
 .tb-2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.tb-2 .search{flex:1 1 240px;max-width:380px}
 .tb-2 select{width:auto;flex:0 1 auto;max-width:200px}
 .tb-2 .sp{flex:1}
 .cats{display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin;padding-bottom:2px;flex:none}
@@ -198,10 +197,31 @@ th[aria-sort="ascending"] .arr,th[aria-sort="descending"] .arr{opacity:1}
 
 /* меню колонок */
 .cm{position:relative;flex:none}
-.ico{width:22px;height:22px;flex:none}
-.ifx{display:contents}
-.ifx>.ico,.cm .ico{display:none}
-.cm-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r);padding:6px;width:260px;max-height:min(60vh,440px);overflow:auto;box-shadow:0 12px 32px rgba(0,0,0,.18);display:flex;flex-direction:column}
+.ico{width:20px;height:20px;flex:none}
+/* фільтри-іконки: системний список відкривається натиском на іконку */
+.ifx{display:inline-flex;align-items:center;justify-content:center;gap:7px;position:relative;flex:none;min-width:var(--ctl);height:var(--ctl);border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink)}
+.ifx:hover{border-color:var(--ink)}
+.ifx:focus-within{outline:2px solid var(--ink);outline-offset:2px}
+.tb-2 .ifx select{position:absolute;inset:0;width:100%;height:100%;max-width:none;opacity:0;cursor:pointer}
+.ifx.on{padding:0 12px 0 10px;background:var(--sunken);border-color:var(--ink)}
+.ifx-v{font-size:14px;font-weight:600;white-space:nowrap}
+.cm .btn{width:var(--ctl);padding:0;position:relative}
+/* пошук: іконка, яка розгортається в поле */
+.sbox{position:relative;flex:0 0 var(--ctl);max-width:var(--ctl);height:var(--ctl);min-width:var(--ctl);transition:flex-basis .22s ease,max-width .22s ease}
+.sbox.open{flex:1 1 300px;max-width:380px}
+.sb-i{all:unset;box-sizing:border-box;position:absolute;left:0;top:0;z-index:1;width:var(--ctl);height:var(--ctl);display:grid;place-items:center;cursor:pointer;color:var(--ink);border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);transition:border-color .15s,color .15s}
+.sb-i:hover{border-color:var(--ink)}
+.sbox.open .sb-i{border-color:transparent;background:transparent;color:var(--muted);pointer-events:none}
+.sbox .search{position:absolute;inset:0;width:100%;height:100%;padding:0 38px 0 40px;background-image:none;opacity:0;pointer-events:none;transition:opacity .15s .05s}
+.sbox.open .search{opacity:1;pointer-events:auto}
+.search::-webkit-search-cancel-button{display:none}
+.sb-x{all:unset;position:absolute;right:4px;top:50%;margin-top:-16px;z-index:1;width:32px;height:32px;display:grid;place-items:center;border-radius:7px;color:var(--muted);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s .05s}
+.sbox.open .sb-x{opacity:1;pointer-events:auto}
+.sb-x:hover{color:var(--ink);background:var(--sunken)}
+.sb-x .ico{width:18px;height:18px}
+.sb-i:focus-visible,.sb-x:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.sbox,.sbox .search,.sb-x{transition:none}}
+.cm-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r);padding:6px;width:260px;max-height:min(60vh,440px);overflow:auto;box-shadow:0 12px 32px rgba(0,0,0,.18);display:flex;flex-direction:column}
 .cm-pop .cm-t{font-size:12px;font-weight:600;color:var(--muted);padding:6px 8px 4px}
 .cm-pop label{display:flex;gap:10px;align-items:center;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:14px}
 .cm-pop label:hover{background:var(--sunken)}
@@ -360,20 +380,14 @@ label.f .lb{display:flex;align-items:center}
   main.fill .page{padding-block:12px;gap:10px}
   h2{font-size:18px}
   .tb{gap:10px}
-  .tb-2 .search{flex:1 1 0;min-width:150px;max-width:none}
+  .sbox.open{flex:1 1 150px;min-width:150px;max-width:none}
+  .ifx-v{display:none}
+  .ifx.on{width:var(--ctl);padding:0}
+  .ifx.on::after{content:"";display:block;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--warn)}
   .tb-2 .seg,.tb-2 #lowOnly{order:2}
   .tb-2 .seg{flex:1 1 auto}
   .tb-2 .seg button{padding:7px 8px}
   .tb-2 select{flex:1 1 130px;max-width:none}
-  /* фільтри стають іконками; системний список відкривається натиском на іконку */
-  .ifx{display:grid;place-items:center;position:relative;flex:none;width:var(--ctl);height:var(--ctl);border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink)}
-  .ifx>.ico{display:block}
-  .ifx:focus-within{outline:2px solid var(--ink);outline-offset:2px}
-  .tb-2 .ifx select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
-  .ifx.on::after{content:"";display:block;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--warn)}
-  .cm .btn{width:var(--ctl);padding:0;position:relative}
-  .cm .ico{display:block}
-  .cm-l{display:none}
   .tb-2 .sp{display:none}
   .cm-pop{position:fixed;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));top:auto;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:auto;max-height:70vh}
   .fg,.fg.three{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -501,11 +515,13 @@ const isMat=p=>p?.type==="material";
 const ICON={
   period:'<path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M4 11h16"/><path d="M8 15h2v2h-2z"/>',
   status:'<path d="M10 20.777a8.942 8.942 0 0 1 -2.48 -.969"/><path d="M14 3.223a9.003 9.003 0 0 1 0 17.554"/><path d="M4.579 17.093a8.961 8.961 0 0 1 -1.227 -2.592"/><path d="M3.124 10.5c.16 -.95 .468 -1.85 .9 -2.675l.169 -.305"/><path d="M6.907 4.579a8.954 8.954 0 0 1 3.093 -1.356"/><path d="M9 12l2 2l4 -4"/>',
+  search:'<path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/>',
+  x:'<path d="M18 6l-12 12"/><path d="M6 6l12 12"/>',
   cols:'<path d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z"/><path d="M12 4v16"/>',
 };
 const icon=k=>`<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
-// на телефоні випадаючий список ховається під іконку; крапка — фільтр змінено
-const ifx=(k,on,sel)=>`<span class="ifx${on?" on":""}">${icon(k)}${sel}</span>`;
+// випадаючий список ховається під іконку; коли фільтр змінено, поруч видно вибране (на телефоні — крапка)
+const ifx=(k,on,sel,val)=>`<span class="ifx${on?" on":""}">${icon(k)}${on&&val?`<span class="ifx-v">${esc(val)}</span>`:""}${sel}</span>`;
 const tipA=t=>t?` data-tip="${esc(t)}"`:"";
 const ti=t=>`<span class="ti" tabindex="0" role="button" aria-label="Підказка" data-tip="${esc(t)}">i</span>`;
 const u=(text,t)=>`<span class="u" tabindex="0"${tipA(t)}>${text}</span>`;
@@ -625,20 +641,35 @@ function demoBanner(){
   if(!COLS.some(c=>S[c].some(d=>d.demo)))return "";
   return `<div class="banner"><p><b>Це приклади даних.</b> Подивіться, як усе рахується, потім видаліть їх.</p>${canWrite?`<button class="btn sm ${ui.demoSure?"danger sure":""}" id="clearDemo" data-tip="Видалити всі записи з позначкою «приклад». Ваші власні записи залишаться">${ui.demoSure?"Так, видалити всі приклади":"Видалити приклади"}</button>`:""}</div>`;
 }
-function periodSelect(){
+function periodSelect(plain){
   const ms=new Set();
   for(const c of ["orders","purchases","expenses"])for(const d of S[c])if(d.date)ms.add(d.date.slice(0,7));
   if(period!=="all")ms.add(period.length===7?period:period+"-01");
   const months=[...ms].sort().reverse(),years=[...new Set(months.map(m=>m.slice(0,4)))];
-  return ifx("period",period!=="all",`<select id="period" aria-label="Період" data-tip="Період для показників і списку. Товари на складі показуються на сьогодні">
+  const sel=`<select id="period" aria-label="Період" data-tip="Період для показників і списку. Товари на складі показуються на сьогодні">
     <option value="all"${period==="all"?" selected":""}>Увесь час</option>
     <optgroup label="Роки">${years.map(y=>`<option value="${y}"${period===y?" selected":""}>${y} рік</option>`).join("")}</optgroup>
     <optgroup label="Місяці">${months.map(m=>`<option value="${m}"${period===m?" selected":""}>${monthName(m)}</option>`).join("")}</optgroup>
-  </select>`);
+  </select>`;
+  return plain?sel:ifx("period",period!=="all",sel,period.length===4?period+" рік":period==="all"?"":monthName(period));
 }
 const ADD_TIPS={order:"Внести новий продаж: товари або набори, ціни, комісію",purchase:"Внести нову партію від постачальника: товари або пакування, з доставкою",product:"Додати товар для продажу або матеріал (пакування)",kit:"Створити набір з кількох товарів",expense:"Внести витрату: рекламу, сервіси, оренду"};
 const addBtn=(label,kind)=>canWrite?`<button class="btn primary" data-new="${kind}"${tipA(ADD_TIPS[kind])}>+ ${label}</button>`:"";
-const searchBox=(k,ph)=>`<input type="search" class="search" id="q_${k}" data-q="${k}" placeholder="${ph}" value="${esc(ui.q[k]||"")}" aria-label="${ph}" autocomplete="off">`;
+const searchBox=(k,ph)=>{
+  const v=ui.q[k]||"",open=!!v||ui.sopen===k;
+  return `<div class="sbox${open?" open":""}" data-sbox="${k}"><button type="button" class="sb-i" data-sopen="${k}" aria-label="Пошук"${open?' tabindex="-1"':tipA(`Пошук: ${ph}`+(touch?"":" (клавіша /)"))}>${icon("search")}</button><input type="search" class="search" id="q_${k}" data-q="${k}" placeholder="${ph}" value="${esc(v)}" aria-label="${ph}" autocomplete="off" enterkeyhint="search"${open?"":' tabindex="-1"'}><button type="button" class="sb-x" data-sclose="${k}" aria-label="${v?"Очистити пошук":"Закрити пошук"}"${open?"":' tabindex="-1"'}${tipA(v?"Очистити":"Закрити пошук (Esc)")}>${icon("x")}</button></div>`;
+};
+// розгорнути пошук без перемальовування, щоб анімація була плавною
+function openSearch(k){
+  ui.sopen=k;const b=main.querySelector(`[data-sbox="${k}"]`);if(!b)return;
+  b.classList.add("open");b.querySelectorAll("[tabindex]").forEach(x=>x.removeAttribute("tabindex"));b.querySelector(".sb-i").tabIndex=-1;
+  hideTip();b.querySelector("input").focus({preventScroll:true});
+}
+function closeSearch(k,refocus){
+  ui.sopen=null;const had=!!ui.q[k];ui.q[k]="";
+  if(had)render();else{const b=main.querySelector(`[data-sbox="${k}"]`);if(b){b.classList.remove("open");b.querySelectorAll("input,.sb-x").forEach(x=>x.tabIndex=-1);b.querySelector(".sb-i").removeAttribute("tabindex")}}
+  if(refocus)main.querySelector(`[data-sopen="${k}"]`)?.focus();
+}
 const match=(k,txt)=>{const q=(ui.q[k]||"").trim().toLowerCase();return !q||txt.toLowerCase().includes(q)};
 
 function vSummary(){
@@ -664,7 +695,7 @@ function vSummary(){
   const topList=Object.values(top).sort((a,b)=>b.rev-a.rev).slice(0,6);
   const st={low:["warn","Докупити"],out:["bad","Немає"]};
   return `
-  <div class="tb"><div class="tb-1"><h2>Зведення</h2><div style="flex:none;width:min(200px,45vw)">${periodSelect()}</div></div></div>
+  <div class="tb"><div class="tb-1"><h2>Зведення</h2><div style="flex:none;width:min(200px,45vw)">${periodSelect(true)}</div></div></div>
   <section class="hero ${t.result>0?"is-good":t.result<0?"is-bad":""}" aria-label="Чистий результат">
     <div><span class="lbl">Чистий результат · ${esc(periodName(period))}${ti("Скільки заробив магазин за період: прибуток від продажів мінус інші витрати (реклама, сервіси, оренда). Закупівля товару сюди не входить, лише собівартість проданого.")}</span><b class="big">${money(t.result)}</b>
       <span class="formula">прибуток від продажів ${money(t.gross)} − інші витрати ${money(t.expenses)}</span></div>
@@ -771,7 +802,7 @@ function table(id,kind,cols,rows,opt={}){
 function colsBtn(id){
   if(!TBL[id])return "";
   const cols=TBL[id].cols,hid=hiddenOf(id),open=ui.colMenu===id;
-  return `<div class="cm"><button class="btn" id="cm_${id}" data-colmenu="${id}" aria-expanded="${open}" aria-haspopup="true" aria-label="Колонки"${tipA(open?"":"Обрати, які колонки показувати. Вибір запам'ятовується в цьому браузері")}>${icon("cols")}<span class="cm-l">Колонки <span class="mut">${cols.length-hid.size}/${cols.length}</span></span></button>${open?`<div class="cm-pop"><div class="cm-t">Показувати колонки</div>${cols.map(c=>`<label><input type="checkbox" id="c_${id}_${c.key}" data-col="${id}" data-key="${c.key}"${hid.has(c.key)?"":" checked"}>${esc(c.label)}</label>`).join("")}<div class="cm-f"><button class="btn ghost sm" data-colreset="${id}">За замовчуванням</button><button class="btn ghost sm" data-colall="${id}">Усі</button></div></div>`:""}</div>`;
+  return `<div class="cm"><button class="btn" id="cm_${id}" data-colmenu="${id}" aria-expanded="${open}" aria-haspopup="true" aria-label="Колонки"${tipA(open?"":`Колонки: показано ${cols.length-hid.size} з ${cols.length}. Натисніть, щоб обрати, які показувати`)}>${icon("cols")}</button>${open?`<div class="cm-pop"><div class="cm-t">Показувати колонки</div>${cols.map(c=>`<label><input type="checkbox" id="c_${id}_${c.key}" data-col="${id}" data-key="${c.key}"${hid.has(c.key)?"":" checked"}>${esc(c.label)}</label>`).join("")}<div class="cm-f"><button class="btn ghost sm" data-colreset="${id}">За замовчуванням</button><button class="btn ghost sm" data-colall="${id}">Усі</button></div></div>`:""}</div>`;
 }
 function listView({title,id,kind,cols,rows,search,per=true,add,extra="",above="",empty,sort}){
   const tbl=rows.length?table(id,kind,cols,rows,{sort}):"";
@@ -779,7 +810,7 @@ function listView({title,id,kind,cols,rows,search,per=true,add,extra="",above=""
   const filtered=(ui.q[id]||"").trim()||(per&&period!=="all")||(id==="orders"&&(ui.ostat||"all")!=="all")||(id==="products"&&(ui.lowOnly||S.products.length&&(ui.ptype||"goods")!=="all"));
   return `<div class="tb">
     <div class="tb-1"><h2>${title}<span class="count">${rows.length}</span></h2>${add||""}</div>
-    <div class="tb-2">${searchBox(id,search)}${per?periodSelect():""}${extra}<span class="sp"></span>${rows.length?colsBtn(id):""}</div>
+    <div class="tb-2">${searchBox(id,search)}${per?periodSelect():""}${extra}${rows.length?colsBtn(id):""}</div>
   </div>${above}${tbl||(filtered?`<div class="empty"><b>Нічого не знайдено</b><p>Змініть пошук або період.</p></div>`:`<div class="empty"><b>${esc(empty[0])}</b><p>${esc(empty[1])}</p></div>`)}`;
 }
 
@@ -804,7 +835,7 @@ function vOrders(){
     {key:"note",label:"Примітка",off:true,cls:"wrapc",v:o=>o.note||""},
   ];
   const inP=S.orders.filter(o=>inPeriod(o.date));
-  const ostSel=ifx("status",os!=="all",`<select id="ostat" aria-label="Статус" data-tip="Показати лише замовлення з цим статусом"><option value="all">Усі статуси</option>${OST.map(([k,l])=>`<option value="${k}"${os===k?" selected":""}>${l} · ${inP.filter(o=>ostOf(o)===k).length}</option>`).join("")}</select>`);
+  const ostSel=ifx("status",os!=="all",`<select id="ostat" aria-label="Статус" data-tip="Показати лише замовлення з цим статусом"><option value="all">Усі статуси</option>${OST.map(([k,l])=>`<option value="${k}"${os===k?" selected":""}>${l} · ${inP.filter(o=>ostOf(o)===k).length}</option>`).join("")}</select>`,OST.find(x=>x[0]===os)?.[1]);
   return listView({title:"Продажі",id:"orders",kind:"order",cols,rows,search:"№ замовлення, SKU, канал",add:addBtn("Продаж","order"),extra:ostSel,sort:{key:"date",dir:"desc"},
     empty:["Продажів ще немає","Кожне замовлення — один запис, у ньому можуть бути і товари, і набори. Товари для продажу спершу додайте у вкладці «Товари» або через закупівлю."]});
 }
@@ -934,6 +965,8 @@ main.addEventListener("submit",e=>{if(e.target.id==="noteForm"){e.preventDefault
 main.addEventListener("click",async e=>{
   const t=e.target;
   const nw=t.closest("[data-new]");if(nw)return openForm(nw.dataset.new);
+  const so=t.closest("[data-sopen]");if(so)return openSearch(so.dataset.sopen);
+  const sx=t.closest("[data-sclose]");if(sx){const k=sx.dataset.sclose;if(ui.q[k]){ui.q[k]="";render();document.getElementById("q_"+k)?.focus()}else closeSearch(k,!touch);return}
   const sb=t.closest("[data-sort]");if(sb){
     const id=sb.dataset.sort,key=sb.dataset.key,st=tblState(id),col=TBL[id].cols.find(c=>c.key===key),cur=st.sort||null;
     st.sort=cur&&cur.key===key?{key,dir:cur.dir==="asc"?"desc":"asc"}:{key,dir:isNumCol(col)||col.f==="date"?"desc":"asc"};
@@ -970,6 +1003,19 @@ main.addEventListener("click",async e=>{
 });
 main.addEventListener("keydown",e=>{const row=e.target.closest?.("tr[data-edit]");if(row&&e.target===row&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openForm(row.dataset.edit,row.dataset.id)}});
 main.addEventListener("input",e=>{const i=e.target;if(i.dataset.q!==undefined){ui.q[i.dataset.q]=i.value;render()}if(i.id==="noteIn"){ui.draft=i.value;fitNote()}});
+main.addEventListener("keydown",e=>{
+  const k=e.target.dataset?.q;if(k===undefined||e.key!=="Escape")return;
+  e.stopPropagation();if(ui.q[k]){ui.q[k]="";render();document.getElementById("q_"+k)?.focus()}else closeSearch(k,true);
+});
+// порожній пошук згортається, коли з нього пішли
+main.addEventListener("focusout",e=>{
+  const k=e.target.dataset?.q;if(k===undefined)return;
+  setTimeout(()=>{const a=document.activeElement;if(!ui.q[k]&&ui.sopen===k&&!a?.closest?.(`[data-sbox="${k}"]`))closeSearch(k)},150);
+});
+document.addEventListener("keydown",e=>{
+  if(e.key!=="/"||F||e.metaKey||e.ctrlKey||e.altKey||/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName))return;
+  const b=main.querySelector("[data-sopen]");if(b){e.preventDefault();openSearch(b.dataset.sopen)}
+});
 main.addEventListener("keydown",e=>{if(e.target.id==="noteIn"&&e.key==="Enter"&&!e.shiftKey&&!touch&&!e.isComposing){e.preventDefault();sendNote()}});
 main.addEventListener("change",e=>{
   const i=e.target;
@@ -988,7 +1034,7 @@ document.addEventListener("keydown",e=>{
   if(F){requestClose();return}
   if(ui.colMenu){const id=ui.colMenu;ui.colMenu=null;render();document.getElementById("cm_"+id)?.focus()}
 });
-document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(!b||b.dataset.tab===tab)return;tab=b.dataset.tab;ui.colMenu=null;try{localStorage.setItem("tab",tab)}catch(_){};render();main.scrollTop=0};
+document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(!b||b.dataset.tab===tab)return;tab=b.dataset.tab;ui.sopen=null;ui.colMenu=null;try{localStorage.setItem("tab",tab)}catch(_){};render();main.scrollTop=0};
 
 /* ---------- форми ---------- */
 let F=null; // {kind,col,id,data,err,sure,fresh}
