@@ -245,7 +245,7 @@ th[aria-sort="ascending"] .arr,th[aria-sort="descending"] .arr{opacity:1}
 .newp{display:flex;flex-direction:column;gap:10px}
 .newp .line-h b{flex:1;font-size:14px}
 .tb-2 .seg{flex:none}
-.tb-2 .seg button{padding:7px 12px;font-size:13.5px}
+.tb-2 .seg button{padding:7px 12px;font-size:13.5px;white-space:nowrap}
 
 /* поле вибору з пошуком */
 .cb{flex:1;min-width:0}
@@ -300,6 +300,30 @@ label.f .lb{display:flex;align-items:center}
 .confirm-c p{margin:0;color:var(--muted);font-size:14.5px;white-space:pre-line}
 .confirm-f{display:flex;gap:10px;justify-content:flex-end}
 
+/* чат */
+.badge{display:inline-block;margin-left:6px;min-width:18px;padding:0 5px;border-radius:999px;background:var(--warn-bg);color:var(--warn);font-size:11.5px;font-weight:700;line-height:18px;text-align:center;vertical-align:1px}
+.chat{flex:1 1 auto;min-height:120px;overflow:auto;overscroll-behavior:contain;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px}
+.day{align-self:center;font-size:12px;font-weight:600;color:var(--muted);padding:6px 0 2px}
+.msg{max-width:min(620px,86%);align-self:flex-start;background:var(--sunken);border:1px solid transparent;border-radius:14px 14px 14px 4px;padding:9px 12px 7px;display:flex;flex-direction:column;gap:6px}
+.msg.mine{align-self:flex-end;border-radius:14px 14px 4px 14px}
+.msg.hot{background:var(--warn-bg);border-color:var(--warn)}
+.msg-t{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.45}
+.msg-m{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.who{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--ink);color:var(--surface);font-size:10.5px;font-weight:700;text-transform:uppercase;flex:none}
+.msg-a{margin-left:auto;padding-left:10px;display:flex;gap:2px}
+.msg-a button{all:unset;cursor:pointer;font-size:12px;font-weight:600;line-height:1.5;padding:2px 8px;border-radius:999px;color:var(--muted)}
+.msg-a button:hover{color:var(--ink);background:var(--surface)}
+.msg-a .st.on{color:var(--warn)}
+.msg-a .del:hover{color:var(--bad)}
+.msg-a button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.chat-e{margin:auto;text-align:center;color:var(--muted);max-width:42ch;padding:20px}
+.chat-e b{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
+.chat-e p{margin:0}
+.composer{flex:none;display:flex;gap:8px;align-items:flex-end}
+.composer textarea{flex:1;resize:none;padding:9px 11px;line-height:1.4;max-height:160px;display:block}
+.composer .hotb{width:var(--ctl);padding:0;font-size:16px;font-weight:800}
+.composer .hotb.on{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+
 /* телефон */
 @media (max-width:640px){
   :root{--ctl:42px;--fs-ctl:16px}
@@ -319,6 +343,9 @@ label.f .lb{display:flex;align-items:center}
   .sheet-f .sp{display:none}
   .panel{padding:16px}
   .t td{padding:10px}
+  .chat{padding:10px}
+  .msg{max-width:92%}
+  .msg-a button{padding:5px 9px}
 }
 @media (max-width:350px){.fg,.fg.three,.line-g{grid-template-columns:minmax(0,1fr)}}
 </style>
@@ -360,6 +387,7 @@ label.f .lb{display:flex;align-items:center}
       <button role="tab" data-tab="products" data-tip="Довідник товарів, залишки й собівартість">Товари</button>
       <button role="tab" data-tab="kits" data-tip="Набори з кількох товарів">Набори</button>
       <button role="tab" data-tab="expenses" data-tip="Реклама, сервіси, оренда та інші витрати магазину">Витрати</button>
+      <button role="tab" data-tab="notes" data-tip="Записи для себе й партнера: що зробити, що домовились">Чат<span class="badge" id="hotCount" hidden></span></button>
     </nav>
   </div>
 </header>
@@ -369,10 +397,10 @@ label.f .lb{display:flex;align-items:center}
 
 <script>
 "use strict";
-const COLS=["products","kits","purchases","orders","expenses"];
-const S={products:[],kits:[],purchases:[],orders:[],expenses:[]};
-let db=null, auth=null, canWrite=true, tab="summary", period="all", C=null, firstLoad=new Set();
-const ui={q:{},lowOnly:false,colMenu:null,tbl:{},demoSure:false};
+const COLS=["products","kits","purchases","orders","expenses","notes"];
+const S={products:[],kits:[],purchases:[],orders:[],expenses:[],notes:[]};
+let db=null, auth=null, me="", canWrite=true, tab="summary", period="all", C=null, firstLoad=new Set();
+const ui={q:{},lowOnly:false,colMenu:null,tbl:{},demoSure:false,draft:"",nfilter:"all",noteHot:false};
 const EXP_CATS=["Реклама","Сервіси та підписки","Пакування для складу","Банк та еквайринг","Оренда","Зарплата","Податки","Інше"];
 const main=document.getElementById("main");
 const touch=matchMedia("(pointer:coarse)").matches;
@@ -485,7 +513,7 @@ function prevPeriod(p){
 /* ---------- рендер ---------- */
 const name=pid=>{const p=S.products.find(x=>x.id===pid);return p?p.sku:"(видалений товар)"};
 const kitName=kid=>{const k=S.kits.find(x=>x.id===kid);return k?k.sku:"(видалений набір)"};
-const VIEWS={summary:vSummary,orders:vOrders,purchases:vPurchases,products:vProducts,kits:vKits,expenses:vExpenses};
+const VIEWS={summary:vSummary,orders:vOrders,purchases:vPurchases,products:vProducts,kits:vKits,expenses:vExpenses,notes:vNotes};
 function render(){
   C=compute();
   // зберегти фокус і прокрутку, щоб оновлення даних нічого не «стрибало»
@@ -493,11 +521,18 @@ function render(){
   let sel=null;try{if(fid&&typeof ae.selectionStart==="number")sel=[ae.selectionStart,ae.selectionEnd]}catch(_){}
   const same=main.dataset.tab===tab,tw=main.querySelector(".tw"),sc=tw?[tw.scrollTop,tw.scrollLeft]:null,ms=main.scrollTop;
   const cmScroll=main.querySelector(".cm-pop")?.scrollTop||0;
+  const ch=main.querySelector(".chat"),chs=ch?[ch.scrollTop,ch.scrollHeight-ch.scrollTop-ch.clientHeight<40]:null;
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===tab));
   main.className=tab==="summary"?"":"fill";
   main.dataset.tab=tab;
   main.innerHTML=`<div class="wrap page">${demoBanner()}${VIEWS[tab]()}</div>`;
   if(same){main.scrollTop=ms;const t2=main.querySelector(".tw");if(t2&&sc){t2.scrollTop=sc[0];t2.scrollLeft=sc[1]}const cp=main.querySelector(".cm-pop");if(cp)cp.scrollTop=cmScroll}
+  const ch2=main.querySelector(".chat");
+  // чат тримається внизу, якщо його не прокрутили вгору
+  if(ch2)ch2.scrollTop=same&&chs&&!chs[1]?chs[0]:ch2.scrollHeight;
+  fitNote();
+  const hot=S.notes.filter(n=>n.status==="hot").length,hc=document.getElementById("hotCount");
+  hc.hidden=!hot;hc.textContent=hot;
   if(fid){const n=document.getElementById(fid);if(n){n.focus({preventScroll:true});if(sel)try{n.setSelectionRange(sel[0],sel[1])}catch(_){}}}
   if(tipFor&&!tipFor.isConnected)hideTip();
 }
@@ -763,6 +798,49 @@ function vExpenses(){
     empty:["Витрат ще немає","Сюди — реклама, сервіси, оренда, банківські комісії. Доставку від постачальника вносьте в закупівлю, а не сюди."]});
 }
 
+/* ---------- чат ---------- */
+const whoName=em=>em===me?"ви":String(em||"?").split("@")[0];
+const localDay=t=>`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;
+function dayLabel(d){
+  const t=new Date();if(d===localDay(t))return "Сьогодні";
+  t.setDate(t.getDate()-1);if(d===localDay(t))return "Вчора";
+  return fmtDate(d);
+}
+function vNotes(){
+  const all=[...S.notes].sort((a,b)=>String(a.at||"").localeCompare(String(b.at||"")));
+  const hot=all.filter(n=>n.status==="hot").length;
+  const rows=all.filter(n=>(ui.nfilter!=="hot"||n.status==="hot")&&match("notes",[n.text,n.author].join(" ")));
+  let day="",list="";
+  for(const n of rows){
+    const at=new Date(n.at||0),dl=localDay(at);
+    if(dl!==day){day=dl;list+=`<div class="day">${esc(dayLabel(dl))}</div>`}
+    const isHot=n.status==="hot",mine=n.author===me;
+    list+=`<div class="msg${mine?" mine":""}${isHot?" hot":""}">
+      <div class="msg-t">${esc(n.text)}</div>
+      <div class="msg-m"><span class="who"${tipA(n.author||"")}>${esc(whoName(n.author)[0]||"?")}</span><span>${esc(whoName(n.author))} · ${at.toLocaleTimeString("uk-UA",{hour:"2-digit",minute:"2-digit"})}</span>
+        ${canWrite?`<span class="msg-a"><button class="st${isHot?" on":""}" data-nstat="${esc(n.id)}"${tipA(isHot?"Актуальний. Натисніть, щоб зробити простим":"Простий. Натисніть, щоб позначити актуальним")}>${isHot?"актуальний":"простий"}</button><button class="del" data-ndel="${esc(n.id)}" aria-label="Видалити запис"${tipA("Видалити запис")}>✕</button></span>`:(isHot?'<span class="chip warn">актуальний</span>':"")}
+      </div></div>`;
+  }
+  const filtered=(ui.q.notes||"").trim()||ui.nfilter==="hot";
+  const empty=filtered?`<div class="chat-e"><b>Нічого не знайдено</b><p>Змініть пошук або фільтр.</p></div>`:`<div class="chat-e"><b>Записів ще немає</b><p>Напишіть тут, що треба зробити або про що домовились. Партнер побачить запис одразу.</p></div>`;
+  return `<div class="tb">
+    <div class="tb-1"><h2>Чат<span class="count">${all.length}</span></h2></div>
+    <div class="tb-2">${searchBox("notes","Пошук у записах")}<div class="seg" role="group" aria-label="Які записи показувати">
+      <button data-nfilter="all" aria-pressed="${ui.nfilter!=="hot"}">Усі</button><button data-nfilter="hot" aria-pressed="${ui.nfilter==="hot"}"${tipA("Лише записи зі статусом «актуальний»")}>Актуальні${hot?` · ${hot}`:""}</button></div></div>
+  </div>
+  <div class="chat" id="chat">${rows.length?list:empty}</div>
+  ${canWrite?`<form class="composer" id="noteForm"><button type="button" class="btn hotb${ui.noteHot?" on":""}" id="noteHot" aria-pressed="${ui.noteHot}"${tipA(ui.noteHot?"Новий запис буде актуальним. Натисніть, щоб зробити простим":"Позначити новий запис актуальним")}>!</button><textarea id="noteIn" rows="1" placeholder="Новий запис…" aria-label="Новий запис">${esc(ui.draft)}</textarea><button class="btn primary" id="noteSend"${tipA(touch?"Надіслати":"Надіслати (Enter). Новий рядок: Shift+Enter")}>Надіслати</button></form>`:""}`;
+}
+function fitNote(){const t=document.getElementById("noteIn");if(t){t.style.height="auto";t.style.height=Math.min(t.scrollHeight+2,160)+"px"}}
+function sendNote(){
+  const text=ui.draft.trim();if(!text)return document.getElementById("noteIn")?.focus();
+  db.collection("notes").doc().set({text,status:ui.noteHot?"hot":"normal",author:me,at:new Date().toISOString()}).catch(err=>toast("Не вдалося зберегти: "+errText(err),true));
+  ui.draft="";ui.noteHot=false;
+  const ch=main.querySelector(".chat");if(ch)ch.scrollTop=ch.scrollHeight; // нове повідомлення показати внизу
+  render();
+}
+main.addEventListener("submit",e=>{if(e.target.id==="noteForm"){e.preventDefault();sendNote()}});
+
 /* ---------- події головного екрана (делегування, один раз) ---------- */
 main.addEventListener("click",async e=>{
   const t=e.target;
@@ -776,6 +854,14 @@ main.addEventListener("click",async e=>{
   const cr=t.closest("[data-colreset]");if(cr){tblState(cr.dataset.colreset).hidden=null;saveTbl(cr.dataset.colreset);return render()}
   const ca=t.closest("[data-colall]");if(ca){tblState(ca.dataset.colall).hidden=[];saveTbl(ca.dataset.colall);return render()}
   if(t.closest("#lowOnly")){ui.lowOnly=!ui.lowOnly;return render()}
+  const nf=t.closest("[data-nfilter]");if(nf){ui.nfilter=nf.dataset.nfilter;return render()}
+  if(t.closest("#noteHot")){ui.noteHot=!ui.noteHot;render();return document.getElementById("noteIn")?.focus()}
+  const ns=t.closest("[data-nstat]");if(ns){const n=S.notes.find(x=>x.id===ns.dataset.nstat);if(n)db.collection("notes").doc(n.id).update({status:n.status==="hot"?"normal":"hot"}).catch(err=>toast(errText(err),true));return}
+  const nd=t.closest("[data-ndel]");if(nd){
+    const n=S.notes.find(x=>x.id===nd.dataset.ndel);if(!n)return;
+    if(await confirmBox("Видалити запис?",n.text.length>120?n.text.slice(0,120)+"…":n.text,"Видалити",true))db.collection("notes").doc(n.id).delete().catch(err=>toast(errText(err),true));
+    return;
+  }
   const pf=t.closest("[data-pfilter]");if(pf){ui.ptype=pf.dataset.pfilter;return render()}
   if(t.closest("#clearDemo")){
     if(!ui.demoSure){ui.demoSure=true;render();setTimeout(()=>{if(ui.demoSure){ui.demoSure=false;render()}},5000);return}
@@ -793,7 +879,8 @@ main.addEventListener("click",async e=>{
   const row=t.closest("tr[data-edit]");if(row)return openForm(row.dataset.edit,row.dataset.id);
 });
 main.addEventListener("keydown",e=>{const row=e.target.closest?.("tr[data-edit]");if(row&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openForm(row.dataset.edit,row.dataset.id)}});
-main.addEventListener("input",e=>{const i=e.target;if(i.dataset.q!==undefined){ui.q[i.dataset.q]=i.value;render()}});
+main.addEventListener("input",e=>{const i=e.target;if(i.dataset.q!==undefined){ui.q[i.dataset.q]=i.value;render()}if(i.id==="noteIn"){ui.draft=i.value;fitNote()}});
+main.addEventListener("keydown",e=>{if(e.target.id==="noteIn"&&e.key==="Enter"&&!e.shiftKey&&!touch&&!e.isComposing){e.preventDefault();sendNote()}});
 main.addEventListener("change",e=>{
   const i=e.target;
   if(i.id==="period"){period=i.value;render()}
@@ -1398,6 +1485,7 @@ function showApp(user){
   loginEl.hidden=true;headerEl.hidden=false;main.hidden=false;loginMsg("");
   document.getElementById("loginPass").value="";
   document.getElementById("userEmail").textContent=user.email||"";
+  me=(user.email||"").toLowerCase();
   userBtn.textContent=(user.email||"?")[0];
   render();
 }
