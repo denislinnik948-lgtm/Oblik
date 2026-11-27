@@ -202,6 +202,19 @@ th[aria-sort="ascending"] .arr,th[aria-sort="descending"] .arr{opacity:1}
 .cm-pop label{display:flex;gap:10px;align-items:center;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:14px}
 .cm-pop label:hover{background:var(--sunken)}
 .cm-pop input{width:17px;height:17px;min-height:0;accent-color:var(--ink);margin:0;flex:none}
+.chip-b{all:unset;cursor:pointer;border-radius:999px}
+.chip-b .chip::after{content:"▾";margin-left:4px;font-size:10px;opacity:.7}
+.chip-b:hover .chip{box-shadow:inset 0 0 0 1px currentColor}
+.chip-b:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.ost-pop{position:fixed;z-index:35;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r);padding:6px;width:220px;box-shadow:0 12px 32px rgba(0,0,0,.22);display:flex;flex-direction:column}
+.ost-pop .cm-t{font-size:12px;font-weight:600;color:var(--muted);padding:6px 8px 4px}
+.ost-pop button{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:7px;cursor:pointer;font-size:14px}
+.ost-pop button:hover,.ost-pop button:focus-visible{background:var(--sunken)}
+.ost-pop button[aria-checked="true"]{font-weight:700}
+.ost-pop button .mut{margin-left:auto}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.dot.good{background:var(--good)} .dot.warn{background:var(--warn)} .dot.info{background:var(--info)} .dot.bad{background:var(--bad)}
+@media (max-width:640px){.ost-pop{left:max(12px,env(safe-area-inset-left,0px))!important;right:max(12px,env(safe-area-inset-right,0px));top:auto!important;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:auto}.ost-pop button{padding:13px 10px;font-size:15px}}
 .cm-f{display:flex;justify-content:space-between;gap:6px;border-top:1px solid var(--line);margin-top:4px;padding-top:6px}
 
 /* бічна форма */
@@ -344,7 +357,7 @@ label.f .lb{display:flex;align-items:center}
   h2{font-size:18px}
   .tb{gap:10px}
   .tb-2 .search{flex-basis:100%;max-width:none}
-  .tb-2 select{flex:1 1 0;max-width:none}
+  .tb-2 select{flex:1 1 130px;max-width:none}
   .tb-2 .sp{display:none}
   .cm-pop{position:fixed;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));top:auto;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:auto;max-height:70vh}
   .fg,.fg.three{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -416,7 +429,38 @@ const ui={q:{},lowOnly:false,colMenu:null,tbl:{},demoSure:false,draft:"",nfilter
 const OST=[["ordered","Замовлено",""],["packed","Зібрано","warn"],["shipped","Відправлено","info"],["received","Отримано","good"],["returned","Повернено","bad"]];
 const OST_TIP={ordered:"Замовлення прийняте, ще не зібране",packed:"Зібране й готове до відправки",shipped:"Передане в доставку",received:"Покупець отримав замовлення",returned:"Покупець повернув замовлення"};
 const ostOf=o=>OST.some(x=>x[0]===o.status)?o.status:"ordered";
-const ostChip=o=>{const[k,l,t]=OST.find(x=>x[0]===ostOf(o));return `<span class="chip ${t}"${tipA(OST_TIP[k])}>${l}</span>`};
+const ostChip=o=>{const[k,l,t]=OST.find(x=>x[0]===ostOf(o));const c=`<span class="chip ${t}">${l}</span>`;
+  return canWrite?`<button type="button" class="chip-b" data-ostq="${esc(o.id)}" aria-haspopup="menu"${tipA(OST_TIP[k]+"\n\nНатисніть, щоб змінити статус")}>${c}</button>`:c};
+// швидка зміна статусу з таблиці, без відкриття форми
+let ostPop=null;
+function closeOstMenu(focusBack){if(!ostPop)return;const id=ostPop.dataset.id;ostPop.remove();ostPop=null;if(focusBack)main.querySelector(`[data-ostq="${CSS.escape(id)}"]`)?.focus()}
+function openOstMenu(btn){
+  const o=S.orders.find(x=>x.id===btn.dataset.ostq);closeOstMenu();if(!o)return;
+  const m=document.createElement("div");m.className="ost-pop";m.setAttribute("role","menu");m.dataset.id=o.id;
+  m.innerHTML=`<div class="cm-t">Статус ${esc(o.number||"замовлення")}</div>`+OST.map(([k,l,t])=>`<button type="button" role="menuitemradio" aria-checked="${ostOf(o)===k}" data-setost="${k}"><span class="dot ${t}"></span>${l}${ostOf(o)===k?'<span class="mut">✓</span>':""}</button>`).join("");
+  document.body.appendChild(m);ostPop=m;
+  const r=btn.getBoundingClientRect(),h=m.offsetHeight,w=m.offsetWidth;
+  m.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+"px";
+  m.style.top=(r.bottom+6+h>innerHeight-8?Math.max(8,r.top-6-h):r.bottom+6)+"px";
+  if(!touch)m.querySelector('[aria-checked="true"]').focus();
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest?.("[data-setost]");
+  if(b&&ostPop){
+    const id=ostPop.dataset.id,k=b.dataset.setost,o=S.orders.find(x=>x.id===id);closeOstMenu(!touch);
+    if(o&&ostOf(o)!==k){db.collection("orders").doc(id).update({status:k}).catch(err=>toast("Не вдалося змінити статус: "+errText(err),true));toast(`${o.number||"Замовлення"}: ${OST.find(x=>x[0]===k)[1].toLowerCase()}`)}
+    return;
+  }
+  if(ostPop&&!e.target.closest?.(".ost-pop,[data-ostq]"))closeOstMenu();
+});
+document.addEventListener("keydown",e=>{
+  if(!ostPop)return;
+  if(e.key==="Escape"){e.stopImmediatePropagation();closeOstMenu(true);return}
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();const bs=[...ostPop.querySelectorAll("button")],i=bs.indexOf(document.activeElement);bs[(i+(e.key==="ArrowDown"?1:bs.length-1))%bs.length].focus()}
+  if(e.key==="Tab")closeOstMenu();
+},true);
+addEventListener("resize",()=>closeOstMenu());
+document.addEventListener("scroll",e=>{if(ostPop&&!ostPop.contains(e.target))closeOstMenu()},true);
 const EXP_CATS=["Реклама","Сервіси та підписки","Пакування для складу","Банк та еквайринг","Оренда","Зарплата","Податки","Інше"];
 const main=document.getElementById("main");
 const touch=matchMedia("(pointer:coarse)").matches;
@@ -895,10 +939,11 @@ main.addEventListener("click",async e=>{
     writeBatches(Object.entries(DEMO).flatMap(([c,docs])=>docs.map(d=>b=>{const{id,...rest}=d;b.set(db.collection(c).doc(id),{...rest,demo:true})}))).catch(err=>toast(errText(err),true));
     return;
   }
+  const oq=t.closest("[data-ostq]");if(oq){if(ostPop?.dataset.id===oq.dataset.ostq)closeOstMenu();else openOstMenu(oq);return}
   if(t.closest(".cm"))return;
   const row=t.closest("tr[data-edit]");if(row)return openForm(row.dataset.edit,row.dataset.id);
 });
-main.addEventListener("keydown",e=>{const row=e.target.closest?.("tr[data-edit]");if(row&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openForm(row.dataset.edit,row.dataset.id)}});
+main.addEventListener("keydown",e=>{const row=e.target.closest?.("tr[data-edit]");if(row&&e.target===row&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openForm(row.dataset.edit,row.dataset.id)}});
 main.addEventListener("input",e=>{const i=e.target;if(i.dataset.q!==undefined){ui.q[i.dataset.q]=i.value;render()}if(i.id==="noteIn"){ui.draft=i.value;fitNote()}});
 main.addEventListener("keydown",e=>{if(e.target.id==="noteIn"&&e.key==="Enter"&&!e.shiftKey&&!touch&&!e.isComposing){e.preventDefault();sendNote()}});
 main.addEventListener("change",e=>{
