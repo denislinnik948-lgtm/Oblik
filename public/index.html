@@ -818,7 +818,7 @@ function vNotes(){
     list+=`<div class="msg${mine?" mine":""}${isHot?" hot":""}">
       <div class="msg-t">${esc(n.text)}</div>
       <div class="msg-m"><span class="who"${tipA(n.author||"")}>${esc(whoName(n.author)[0]||"?")}</span><span>${esc(whoName(n.author))} · ${at.toLocaleTimeString("uk-UA",{hour:"2-digit",minute:"2-digit"})}</span>
-        ${canWrite?`<span class="msg-a"><button class="st${isHot?" on":""}" data-nstat="${esc(n.id)}"${tipA(isHot?"Актуальний. Натисніть, щоб зробити простим":"Простий. Натисніть, щоб позначити актуальним")}>${isHot?"актуальний":"простий"}</button><button class="del" data-ndel="${esc(n.id)}" aria-label="Видалити запис"${tipA("Видалити запис")}>✕</button></span>`:(isHot?'<span class="chip warn">актуальний</span>':"")}
+        ${canWrite?`<span class="msg-a"><button class="st${isHot?" on":""}" data-nstat="${esc(n.id)}"${tipA(isHot?"Актуальний. Натисніть, щоб зробити звичайним":"Звичайний. Натисніть, щоб позначити актуальним")}>${isHot?"актуальний":"звичайний"}</button><button class="del" data-ndel="${esc(n.id)}" aria-label="Видалити запис"${tipA("Видалити запис")}>✕</button></span>`:(isHot?'<span class="chip warn">актуальний</span>':"")}
       </div></div>`;
   }
   const filtered=(ui.q.notes||"").trim()||ui.nfilter==="hot";
@@ -829,7 +829,7 @@ function vNotes(){
       <button data-nfilter="all" aria-pressed="${ui.nfilter!=="hot"}">Усі</button><button data-nfilter="hot" aria-pressed="${ui.nfilter==="hot"}"${tipA("Лише записи зі статусом «актуальний»")}>Актуальні${hot?` · ${hot}`:""}</button></div></div>
   </div>
   <div class="chat" id="chat">${rows.length?list:empty}</div>
-  ${canWrite?`<form class="composer" id="noteForm"><button type="button" class="btn hotb${ui.noteHot?" on":""}" id="noteHot" aria-pressed="${ui.noteHot}"${tipA(ui.noteHot?"Новий запис буде актуальним. Натисніть, щоб зробити простим":"Позначити новий запис актуальним")}>!</button><textarea id="noteIn" rows="1" placeholder="Новий запис…" aria-label="Новий запис">${esc(ui.draft)}</textarea><button class="btn primary" id="noteSend"${tipA(touch?"Надіслати":"Надіслати (Enter). Новий рядок: Shift+Enter")}>Надіслати</button></form>`:""}`;
+  ${canWrite?`<form class="composer" id="noteForm"><button type="button" class="btn hotb${ui.noteHot?" on":""}" id="noteHot" aria-pressed="${ui.noteHot}"${tipA(ui.noteHot?"Новий запис буде актуальним. Натисніть, щоб зробити звичайним":"Позначити новий запис актуальним")}>!</button><textarea id="noteIn" rows="1" placeholder="Новий запис…" aria-label="Новий запис">${esc(ui.draft)}</textarea><button class="btn primary" id="noteSend"${tipA(touch?"Надіслати":"Надіслати (Enter). Новий рядок: Shift+Enter")}>Надіслати</button></form>`:""}`;
 }
 function fitNote(){const t=document.getElementById("noteIn");if(t){t.style.height="auto";t.style.height=Math.min(t.scrollHeight+2,160)+"px"}}
 function sendNote(){
