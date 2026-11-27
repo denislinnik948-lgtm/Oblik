@@ -1,1 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3B6FF5"/><stop offset="1" stop-color="#8B3FE8"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#g)"/><path d="M18 44V22M28 44V30M38 44V26M48 44V18" stroke="#fff" stroke-width="6" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+<defs>
+  <linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A8CFF"/><stop offset="1" stop-color="#1F5FE0"/></linearGradient>
+  <linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5C6BFF"/><stop offset="1" stop-color="#3F45D8"/></linearGradient>
+  <linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8558F5"/><stop offset="1" stop-color="#5F38D6"/></linearGradient>
+  <linearGradient id="d" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B653F0"/><stop offset="1" stop-color="#8A2FD6"/></linearGradient>
+  <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#10063A" stop-opacity=".3"/></linearGradient>
+  <filter id="fuzz" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="4.5"/></filter>
+  <filter id="hair"><feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="7"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -1.4 .9"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+  <g id="bars">
+    <rect x="17" y="54" width="21" height="54" rx="10.5"/>
+    <rect x="42" y="70" width="21" height="38" rx="10.5"/>
+    <rect x="67" y="40" width="21" height="68" rx="10.5"/>
+    <rect x="92" y="22" width="21" height="86" rx="10.5"/>
+  </g>
+</defs>
+<rect width="128" height="128" rx="28" fill="#16122E"/>
+<use href="#bars" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round" filter="url(#fuzz)"/>
+<g filter="url(#fuzz)">
+  <rect x="17" y="54" width="21" height="54" rx="10.5" fill="url(#a)"/>
+  <rect x="42" y="70" width="21" height="38" rx="10.5" fill="url(#b)"/>
+  <rect x="67" y="40" width="21" height="68" rx="10.5" fill="url(#c)"/>
+  <rect x="92" y="22" width="21" height="86" rx="10.5" fill="url(#d)"/>
+  <use href="#bars" fill="url(#shade)"/>
+</g>
+<use href="#bars" fill="#fff" filter="url(#hair)" opacity=".22"/>
+</svg>
