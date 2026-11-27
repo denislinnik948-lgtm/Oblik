@@ -781,7 +781,7 @@ function vOrders(){
   const inP=S.orders.filter(o=>inPeriod(o.date));
   const ostSel=`<select id="ostat" aria-label="Статус" data-tip="Показати лише замовлення з цим статусом"><option value="all">Усі статуси</option>${OST.map(([k,l])=>`<option value="${k}"${os===k?" selected":""}>${l} · ${inP.filter(o=>ostOf(o)===k).length}</option>`).join("")}</select>`;
   return listView({title:"Продажі",id:"orders",kind:"order",cols,rows,search:"№ замовлення, SKU, канал",add:addBtn("Продаж","order"),extra:ostSel,sort:{key:"date",dir:"desc"},
-    empty:["Продажів ще немає","Кожне замовлення — один запис, у ньому можуть бути і товари, і набори. Новий товар можна створити прямо у формі продажу."]});
+    empty:["Продажів ще немає","Кожне замовлення — один запис, у ньому можуть бути і товари, і набори. Товари для продажу спершу додайте у вкладці «Товари» або через закупівлю."]});
 }
 function vPurchases(){
   const rows=S.purchases.filter(b=>inPeriod(b.date)&&match("purchases",[b.batch,b.supplier,b.note,...(b.lines||[]).map(l=>name(l.productId))].join(" ")));
@@ -1058,7 +1058,7 @@ function cbField(i){
   const l=F.data[linesKey()][i],ph=F.kind==="order"?"Товар, набір або матеріал":"Товар або матеріал";
   return `<div class="cb"><input id="l_${i}_cb" class="cb-in" data-cbi="${i}" value="${esc(cbLabel(l))}" placeholder="${ph}: почніть вводити" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cbl_${i}" aria-autocomplete="list" aria-label="${ph}">
     <div class="cb-list" id="cbl_${i}" role="listbox" hidden></div></div>
-    <button type="button" class="btn cb-new" data-cbnew="${i}" data-tip="Створити новий товар або матеріал і додати його в довідник">+<span class="t"> Новий</span></button>`;
+    ${F.kind==="order"?"":`<button type="button" class="btn cb-new" data-cbnew="${i}" data-tip="Створити новий товар або матеріал і додати його в довідник">+<span class="t"> Новий</span></button>`}`;
 }
 let CB=null; // {i,q,hi,opts}
 function cbOpen(i,q){
@@ -1066,11 +1066,12 @@ function cbOpen(i,q){
   const cur=cbVal(F.data[linesKey()][i]),groups=cbItems(q),opts=[];
   let html="";
   for(const[g,items]of groups){html+=`<div class="cb-g">${esc(g)}</div>`;for(const it of items){const k=opts.length;opts.push(it.v);html+=`<div class="cb-o${it.v===cur?" cur":""}" role="option" id="cbo_${i}_${k}" data-cbo="${k}"><span class="nm">${esc(it.x.name)}</span><span class="m">${esc(it.x.sku)} · ${it.m}</span></div>`}}
-  if(!opts.length)html+=`<div class="cb-empty">${q.trim()?"Нічого не знайдено.":"Довідник поки порожній."}</div>`;
-  const k=opts.length;opts.push("__new");
-  html+=`<div class="cb-o new" role="option" id="cbo_${i}_${k}" data-cbo="${k}">${q.trim()?`+ Створити «${esc(q.trim())}»`:"+ Створити новий товар або матеріал"}</div>`;
+  // у продажі нові товари не створюються: спершу товар додають у довідник або закупівлю
+  if(!opts.length)html+=`<div class="cb-empty">${q.trim()?"Нічого не знайдено.":"Довідник поки порожній."}${F.kind==="order"?" Новий товар додайте у вкладці «Товари» або через закупівлю.":""}</div>`;
+  if(F.kind!=="order"){const k=opts.length;opts.push("__new");
+  html+=`<div class="cb-o new" role="option" id="cbo_${i}_${k}" data-cbo="${k}">${q.trim()?`+ Створити «${esc(q.trim())}»`:"+ Створити новий товар або матеріал"}</div>`}
   let hi=CB&&CB.i===i?Math.min(CB.hi,opts.length-1):-1;
-  if(q.trim()&&hi<0)hi=0;
+  if(q.trim()&&hi<0&&opts.length)hi=0;
   CB={i,q,hi,opts};
   list.innerHTML=html;list.hidden=false;inp.setAttribute("aria-expanded","true");cbHi();
 }
