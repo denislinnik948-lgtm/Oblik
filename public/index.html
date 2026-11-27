@@ -811,7 +811,7 @@ function listView({title,id,kind,cols,rows,search,per=true,add,extra="",above=""
   const filtered=(ui.q[id]||"").trim()||(per&&period!=="all")||(id==="orders"&&(ui.ostat||"all")!=="all")||(id==="products"&&(ui.lowOnly||S.products.length&&(ui.ptype||"goods")!=="all"));
   return `<div class="tb">
     <div class="tb-1"><h2>${title}<span class="count">${rows.length}</span></h2>${add||""}</div>
-    <div class="tb-2">${searchBox(id,search)}${per?periodSelect():""}<span class="sp"></span>${extra}${rows.length?colsBtn(id):""}</div>
+    <div class="tb-2">${per?periodSelect():""}${searchBox(id,search)}<span class="sp"></span>${extra}${rows.length?colsBtn(id):""}</div>
   </div>${above}${tbl||(filtered?`<div class="empty"><b>Нічого не знайдено</b><p>Змініть пошук або період.</p></div>`:`<div class="empty"><b>${esc(empty[0])}</b><p>${esc(empty[1])}</p></div>`)}`;
 }
 
