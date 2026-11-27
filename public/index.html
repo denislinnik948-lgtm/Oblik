@@ -695,7 +695,7 @@ function colsBtn(id){
 function listView({title,id,kind,cols,rows,search,per=true,add,extra="",above="",empty,sort}){
   const tbl=rows.length?table(id,kind,cols,rows,{sort}):"";
   if(!rows.length)TBL[id]={cols};
-  const filtered=(ui.q[id]||"").trim()||(per&&period!=="all")||(id==="products"&&ui.lowOnly);
+  const filtered=(ui.q[id]||"").trim()||(per&&period!=="all")||(id==="products"&&(ui.lowOnly||S.products.length&&(ui.ptype||"goods")!=="all"));
   return `<div class="tb">
     <div class="tb-1"><h2>${title}<span class="count">${rows.length}</span></h2>${add||""}</div>
     <div class="tb-2">${searchBox(id,search)}${per?periodSelect():""}${extra}<span class="sp"></span>${rows.length?colsBtn(id):""}</div>
@@ -742,7 +742,7 @@ function vPurchases(){
     empty:["Закупівель ще немає","Одна закупівля — одна партія від постачальника: товари або пакування, з доставкою. Новий товар чи матеріал можна створити прямо у формі."]});
 }
 function vProducts(){
-  const all=Object.values(C.P),nLow=all.filter(p=>p.status!=="ok").length,pt=ui.ptype||"all";
+  const all=Object.values(C.P),nLow=all.filter(p=>p.status!=="ok").length,pt=ui.ptype||"goods";
   const rows=all.filter(p=>(pt==="all"||(pt==="material")===isMat(p))&&(!ui.lowOnly||p.status!=="ok")&&match("products",[p.sku,p.name,p.category,p.supplier].join(" ")));
   const st={ok:["good","В наявності"],low:["warn","Докупити"],out:["bad","Немає"]},rank={out:0,low:1,ok:2};
   const cols=[
