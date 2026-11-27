@@ -939,7 +939,8 @@ function cbPick(k){
   document.activeElement?.blur(); // інакше перебудова форми поверне фокус у поле й знову відкриє список
   if(v==="__new"){l._new={name:q.trim(),type:"goods"};drawSheet();const n=document.getElementById(`l_${i}_newname`);n?.focus();return}
   applyPick(l,v);drawSheet();
-  const nx=document.getElementById(`l_${i}_qty`);nx?.focus({preventScroll:touch});nx?.select?.();
+  // на телефоні не переводимо фокус: інакше вискакує клавіатура й сторінка зсувається
+  if(!touch)document.getElementById(`l_${i}_qty`)?.focus();
 }
 function applyPick(l,v){
   if(F.kind!=="order"){l.productId=v;return}
@@ -950,7 +951,7 @@ function createInline(i){
   const l=F.data[linesKey()][i],n=l._new,nm=(n.name||"").trim();
   if(!nm){n.err="Вкажіть назву.";drawSheet();document.getElementById(`l_${i}_newname`)?.focus();return}
   const dup=S.products.find(p=>(p.name||"").trim().toLowerCase()===nm.toLowerCase());
-  if(dup){delete l._new;applyPick(l,F.kind==="order"?"p:"+dup.id:dup.id);drawSheet();document.getElementById(`l_${i}_qty`)?.focus();toast(`«${dup.name}» вже є в довіднику, обрано його`);return}
+  if(dup){delete l._new;applyPick(l,F.kind==="order"?"p:"+dup.id:dup.id);drawSheet();if(!touch)document.getElementById(`l_${i}_qty`)?.focus();toast(`«${dup.name}» вже є в довіднику, обрано його`);return}
   const ref=db.collection("products").doc(),mat=n.type==="material";
   const p={sku:autoSku(n.type),name:nm,type:mat?"material":"goods",category:mat?"Пакування":"",supplier:F.kind==="purchase"?(F.data.supplier||"").trim():"",price:0,minStock:0};
   ref.set(p).catch(err=>toast("Не вдалося створити: "+errText(err),true));
@@ -958,7 +959,7 @@ function createInline(i){
   delete l._new;
   if(F.kind==="order"){l.kind="product";l.refId=ref.id;delete l.components}else l.productId=ref.id;
   drawSheet();
-  const next=document.getElementById(`l_${i}_${F.kind==="kit"?"qty":F.kind==="order"?"qty":"qty"}`);next?.focus();next?.select?.();
+  if(!touch)document.getElementById(`l_${i}_qty`)?.focus();
   toast(`${mat?"Матеріал":"Товар"} «${nm}» додано в довідник`);
 }
 function dlist(id,vals){return `<datalist id="${id}">${[...new Set(vals.filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join("")}</datalist>`}
@@ -1082,13 +1083,19 @@ function drawSheet(){
 }
 const sheetRoot=document.getElementById("sheetRoot");
 sheetRoot.addEventListener("focusin",e=>{
-  const i=e.target;if(!F||i.dataset?.cbi===undefined)return;
+  const i=e.target;if(!F)return;
+  if(i.dataset?.lk==="qty"&&i.value==="1"){i.placeholder="1";i.value="";return}
+  // на комп'ютері заповнене числове поле виділяється цілком, щоб новий ввід замінив старе значення
+  if(!touch&&i.inputMode==="decimal"&&i.value)setTimeout(()=>{if(document.activeElement===i)i.select()},0);
+  if(i.dataset?.cbi===undefined)return;
   const n=+i.dataset.cbi;if(CB&&CB.i!==n)cbClose();
   if(!CB){cbOpen(n,"");i.select()}
   if(touch)setTimeout(()=>i.scrollIntoView({block:"start",behavior:"smooth"}),250);
 });
 sheetRoot.addEventListener("focusout",e=>{
-  const i=e.target;if(i.dataset?.cbi===undefined)return;
+  const i=e.target;
+  if(F&&i.dataset?.lk==="qty"&&!i.value.trim()){i.value="1";const l=F.data[linesKey()]?.[+i.dataset.l];if(l){l.qty="1";updateDerived()}return}
+  if(i.dataset?.cbi===undefined)return;
   setTimeout(()=>{if(CB&&CB.i===+i.dataset.cbi&&document.activeElement!==i)cbClose()},120);
 });
 // mousedown, а не click: інакше поле втратить фокус раніше, ніж спрацює вибір
@@ -1121,7 +1128,12 @@ sheetRoot.addEventListener("click",async e=>{
   const nk=t.closest("[data-ncreate]");if(nk)return createInline(+nk.dataset.ncreate);
   const cn=t.closest("[data-cbnew]");if(cn){const n=+cn.dataset.cbnew;cbClose(false);arr[n]._new={name:"",type:"goods"};drawSheet();document.getElementById(`l_${n}_newname`)?.focus();return}
   const del=t.closest("[data-del]");if(del){arr.splice(+del.dataset.del,1);if(!arr.length)arr.push(blankLine[F.kind]());return drawSheet()}
-  if(t.closest("[data-add]")){arr.push(blankLine[F.kind]());drawSheet();document.getElementById(`l_${arr.length-1}_cb`)?.focus();return}
+  if(t.closest("[data-add]")){
+    arr.push(blankLine[F.kind]());drawSheet();
+    const n=document.getElementById(`l_${arr.length-1}_cb`);
+    if(touch)n?.closest(".line")?.scrollIntoView({block:"center",behavior:"smooth"});else n?.focus();
+    return;
+  }
   const rt=t.closest("[data-ret]");if(rt){arr[+rt.dataset.ret]._ret=true;drawSheet();document.getElementById(`l_${rt.dataset.ret}_returned`)?.focus();return}
   if(t.closest("#delS")){
     if(F.kind==="product"&&usedProduct(F.id)){F.err="Цей товар є в закупівлях, продажах або наборах. Спершу видаліть ці записи, інакше розрахунки зламаються.";return drawSheet()}
