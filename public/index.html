@@ -27,7 +27,7 @@
 :root{
   --bg:#F4F4F2; --surface:#FFFFFF; --sunken:#F0F0ED; --zebra:#FAFAF8; --ink:#151515; --muted:#686864; --line:#E3E3DF; --line-strong:#C8C8C3;
   --btn:#151515; --btn-ink:#FFFFFF; --bar:#D2D2CD; --scrim:rgba(15,15,15,.45);
-  --good:#1D7A43; --good-bg:#E3F2E8; --warn:#8F5F00; --warn-bg:#FBEFD2; --bad:#BF3329; --bad-bg:#FBE4E1;
+  --good:#1D7A43; --good-bg:#E3F2E8; --warn:#8F5F00; --warn-bg:#FBEFD2; --bad:#BF3329; --bad-bg:#FBE4E1; --info:#2F5BD3; --info-bg:#E4ECFC;
   --f-display:"Unbounded","Golos Text",system-ui,sans-serif;
   --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
   --r:12px; --ctl:38px; --fs-ctl:14.5px;
@@ -35,11 +35,11 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0E0E0E; --surface:#171717; --sunken:#1F1F1F; --zebra:#1A1A1A; --ink:#F0F0EE; --muted:#9C9C98; --line:#2C2C2C; --line-strong:#454545;
   --btn:#F0F0EE; --btn-ink:#111111; --bar:#4A4A4A; --scrim:rgba(0,0,0,.6);
-  --good:#5CC888; --good-bg:#15301F; --warn:#E6B44D; --warn-bg:#352A12; --bad:#F27B70; --bad-bg:#3B1D1A; color-scheme:dark}}
+  --good:#5CC888; --good-bg:#15301F; --warn:#E6B44D; --warn-bg:#352A12; --bad:#F27B70; --bad-bg:#3B1D1A; --info:#8CAEFF; --info-bg:#1A2747; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0E0E0E; --surface:#171717; --sunken:#1F1F1F; --zebra:#1A1A1A; --ink:#F0F0EE; --muted:#9C9C98; --line:#2C2C2C; --line-strong:#454545;
   --btn:#F0F0EE; --btn-ink:#111111; --bar:#4A4A4A; --scrim:rgba(0,0,0,.6);
-  --good:#5CC888; --good-bg:#15301F; --warn:#E6B44D; --warn-bg:#352A12; --bad:#F27B70; --bad-bg:#3B1D1A; color-scheme:dark}
+  --good:#5CC888; --good-bg:#15301F; --warn:#E6B44D; --warn-bg:#352A12; --bad:#F27B70; --bad-bg:#3B1D1A; --info:#8CAEFF; --info-bg:#1A2747; color-scheme:dark}
 *{box-sizing:border-box}
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0}
@@ -188,6 +188,7 @@ th[aria-sort="ascending"] .arr,th[aria-sort="descending"] .arr{opacity:1}
 .chip.good{background:var(--good-bg);color:var(--good)}
 .chip.warn{background:var(--warn-bg);color:var(--warn)}
 .chip.bad{background:var(--bad-bg);color:var(--bad)}
+.chip.info{background:var(--info-bg);color:var(--info)}
 .chip.demo{background:transparent;border:1px dashed var(--line-strong);padding:0 7px;font-weight:500}
 .empty{padding:40px 20px;text-align:center;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:var(--r);flex:none}
 .empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
@@ -246,6 +247,12 @@ th[aria-sort="ascending"] .arr,th[aria-sort="descending"] .arr{opacity:1}
 .seg button:hover{color:var(--ink)}
 .seg button[aria-pressed="true"]{background:var(--btn);color:var(--btn-ink)}
 .seg button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.seg.ost{flex-wrap:wrap}
+.seg.ost button{flex:1 0 auto;padding:8px 9px}
+.seg.ost button[aria-pressed="true"].good{background:var(--good-bg);color:var(--good)}
+.seg.ost button[aria-pressed="true"].warn{background:var(--warn-bg);color:var(--warn)}
+.seg.ost button[aria-pressed="true"].info{background:var(--info-bg);color:var(--info)}
+.seg.ost button[aria-pressed="true"].bad{background:var(--bad-bg);color:var(--bad)}
 .newp{display:flex;flex-direction:column;gap:10px}
 .newp .line-h b{flex:1;font-size:14px}
 .tb-2 .seg{flex:none}
@@ -405,6 +412,11 @@ const COLS=["products","kits","purchases","orders","expenses","notes"];
 const S={products:[],kits:[],purchases:[],orders:[],expenses:[],notes:[]};
 let db=null, auth=null, me="", canWrite=true, tab="summary", period="all", C=null, firstLoad=new Set();
 const ui={q:{},lowOnly:false,colMenu:null,tbl:{},demoSure:false,draft:"",nfilter:"all",noteHot:false};
+// статус замовлення: ключ, назва, колір
+const OST=[["ordered","Замовлено",""],["packed","Зібрано","warn"],["shipped","Відправлено","info"],["received","Отримано","good"],["returned","Повернено","bad"]];
+const OST_TIP={ordered:"Замовлення прийняте, ще не зібране",packed:"Зібране й готове до відправки",shipped:"Передане в доставку",received:"Покупець отримав замовлення",returned:"Покупець повернув замовлення"};
+const ostOf=o=>OST.some(x=>x[0]===o.status)?o.status:"ordered";
+const ostChip=o=>{const[k,l,t]=OST.find(x=>x[0]===ostOf(o));return `<span class="chip ${t}"${tipA(OST_TIP[k])}>${l}</span>`};
 const EXP_CATS=["Реклама","Сервіси та підписки","Пакування для складу","Банк та еквайринг","Оренда","Зарплата","Податки","Інше"];
 const main=document.getElementById("main");
 const touch=matchMedia("(pointer:coarse)").matches;
@@ -661,7 +673,7 @@ function tblState(id){
 function saveTbl(id){try{localStorage.setItem("tbl:"+id,JSON.stringify(ui.tbl[id]))}catch(_){}}
 function hiddenOf(id){const st=tblState(id);return new Set(st.hidden??TBL[id].cols.filter(c=>c.off).map(c=>c.key))}
 const COL_TIPS={
-  orders:{date:"Дата продажу. Від неї залежить собівартість: береться середня ціна закупівель до цієї дати",number:"Номер замовлення. В одному замовленні може бути кілька позицій",channel:"Де продали: Instagram, Rozetka, сайт тощо",items:"Товари й набори в замовленні та їх кількість",units:"Скільки позицій продано (набір рахується як 1)",net:"Сума продажу після знижок мінус гроші, повернені покупцю",refund:"Гроші, повернені покупцю",cogs:"Скільки коштував проданий товар за закупівельними цінами з доставкою. Повернені одиниці не враховуються",commission:"Комісія майданчика або еквайрингу за замовлення",ship:"Доставка й пакування, які оплатив магазин",profit:"Виручка мінус собівартість, комісія й доставка магазину",margin:"Яка частка виручки лишається прибутком",note:"Покупець або примітка"},
+  orders:{status:"Замовлено → Зібрано → Відправлено → Отримано, або Повернено. Змінюється у формі продажу",date:"Дата продажу. Від неї залежить собівартість: береться середня ціна закупівель до цієї дати",number:"Номер замовлення. В одному замовленні може бути кілька позицій",channel:"Де продали: Instagram, Rozetka, сайт тощо",items:"Товари й набори в замовленні та їх кількість",units:"Скільки позицій продано (набір рахується як 1)",net:"Сума продажу після знижок мінус гроші, повернені покупцю",refund:"Гроші, повернені покупцю",cogs:"Скільки коштував проданий товар за закупівельними цінами з доставкою. Повернені одиниці не враховуються",commission:"Комісія майданчика або еквайрингу за замовлення",ship:"Доставка й пакування, які оплатив магазин",profit:"Виручка мінус собівартість, комісія й доставка магазину",margin:"Яка частка виручки лишається прибутком",note:"Покупець або примітка"},
   purchases:{date:"Дата закупівлі",batch:"Номер партії або замовлення в постачальника",supplier:"У кого закупили",items:"Товари в партії, кількість і ціна за штуку",qty:"Скільки штук у партії",goods:"Кількість × ціна, без доставки",extra:"Додаткові витрати на окремі товари: маркування, упаковка тощо",shipping:"Доставка всієї партії. Ділиться між товарами пропорційно їхній вартості",total:"Повна вартість партії з доставкою й дод. витратами",note:"Примітка до партії"},
   products:{sku:"Унікальний код товару",name:"Назва товару",category:"Категорія товару",supplier:"Постачальник або бренд",bought:"Скільки штук закуплено за весь час",sold:"Скільки штук продано за весь час, разом з тими, що пішли в набори",returned:"Скільки штук повернули покупці на склад",stock:"Закуплено − продано + повернено",min:"Коли залишок опуститься до цього числа, товар отримає статус «Докупити»",avg:"Середня ціна закупівлі за штуку з доставкою, за всі партії",value:"Залишок × середня собівартість: скільки грошей лежить у цьому товарі",price:"Звичайна ціна продажу з картки товару",markup:"На скільки ціна продажу вища за собівартість",revenue:"Виручка від продажу цього товару окремо, без наборів",profit:"Прибуток від продажу цього товару окремо, без наборів",status:"В наявності, Докупити (залишок не більший за мінімальний) або Немає"},
   kits:{sku:"Унікальний код набору",name:"Назва набору",comp:"Товари, з яких складається набір, і їх кількість",cost:"Собівартість компонентів за поточними середніми цінами",price:"Ціна продажу набору",margin:"Яка частка ціни лишається після собівартості компонентів",build:"Скільки наборів можна зібрати з поточних залишків",sold:"Скільки наборів продано",revenue:"Виручка від продажу наборів",profit:"Прибуток від наборів після собівартості, комісій і доставки"},
@@ -695,7 +707,7 @@ function colsBtn(id){
 function listView({title,id,kind,cols,rows,search,per=true,add,extra="",above="",empty,sort}){
   const tbl=rows.length?table(id,kind,cols,rows,{sort}):"";
   if(!rows.length)TBL[id]={cols};
-  const filtered=(ui.q[id]||"").trim()||(per&&period!=="all")||(id==="products"&&(ui.lowOnly||S.products.length&&(ui.ptype||"goods")!=="all"));
+  const filtered=(ui.q[id]||"").trim()||(per&&period!=="all")||(id==="orders"&&(ui.ostat||"all")!=="all")||(id==="products"&&(ui.lowOnly||S.products.length&&(ui.ptype||"goods")!=="all"));
   return `<div class="tb">
     <div class="tb-1"><h2>${title}<span class="count">${rows.length}</span></h2>${add||""}</div>
     <div class="tb-2">${searchBox(id,search)}${per?periodSelect():""}${extra}<span class="sp"></span>${rows.length?colsBtn(id):""}</div>
@@ -703,11 +715,13 @@ function listView({title,id,kind,cols,rows,search,per=true,add,extra="",above=""
 }
 
 function vOrders(){
-  const rows=S.orders.filter(o=>inPeriod(o.date)&&match("orders",[o.number,o.channel,o.note,...(o.lines||[]).map(l=>l.kind==="kit"?kitName(l.refId):name(l.refId))].join(" ")));
+  const os=ui.ostat||"all";
+  const rows=S.orders.filter(o=>inPeriod(o.date)&&(os==="all"||ostOf(o)===os)&&match("orders",[o.number,o.channel,o.note,...(o.lines||[]).map(l=>l.kind==="kit"?kitName(l.refId):name(l.refId))].join(" ")));
   const items=o=>(o.lines||[]).map(l=>`<div>${esc(l.kind==="kit"?kitName(l.refId)+" · набір":name(l.refId)+(isMat(C.P[l.refId])?" · списання":""))} × ${qty(l.qty)}${num(l.returned)?` <span class="chip warn"${tipA(`Покупець повернув ${qty(l.returned)} шт. на склад${num(l.refund)?`, повернено ${money(l.refund)}`:""}`)}>повернено ${qty(l.returned)}</span>`:""}</div>`).join("");
   const cols=[
     {key:"date",label:"Дата",f:"date",v:o=>o.date||""},
     {key:"number",label:"Замовлення",v:o=>o.number||"",h:o=>`<span class="sku">${esc(o.number||"—")}</span>${demoChip(o)}`},
+    {key:"status",label:"Статус",v:o=>OST.findIndex(x=>x[0]===ostOf(o)),h:ostChip},
     {key:"channel",label:"Канал",v:o=>o.channel||""},
     {key:"items",label:"Позиції",cls:"wrapc",v:o=>(o.lines||[]).map(l=>l.kind==="kit"?kitName(l.refId):name(l.refId)).join(", "),h:items},
     {key:"units",label:"Штук",f:"qty",total:true,off:true,v:o=>(o.lines||[]).reduce((s,l)=>s+num(l.qty),0)},
@@ -720,7 +734,9 @@ function vOrders(){
     {key:"margin",label:"Маржа",f:"pct",sign:true,v:o=>o._net?o._profit/o._net*100:NaN},
     {key:"note",label:"Примітка",off:true,cls:"wrapc",v:o=>o.note||""},
   ];
-  return listView({title:"Продажі",id:"orders",kind:"order",cols,rows,search:"№ замовлення, SKU, канал",add:addBtn("Продаж","order"),sort:{key:"date",dir:"desc"},
+  const inP=S.orders.filter(o=>inPeriod(o.date));
+  const ostSel=`<select id="ostat" aria-label="Статус" data-tip="Показати лише замовлення з цим статусом"><option value="all">Усі статуси</option>${OST.map(([k,l])=>`<option value="${k}"${os===k?" selected":""}>${l} · ${inP.filter(o=>ostOf(o)===k).length}</option>`).join("")}</select>`;
+  return listView({title:"Продажі",id:"orders",kind:"order",cols,rows,search:"№ замовлення, SKU, канал",add:addBtn("Продаж","order"),extra:ostSel,sort:{key:"date",dir:"desc"},
     empty:["Продажів ще немає","Кожне замовлення — один запис, у ньому можуть бути і товари, і набори. Новий товар можна створити прямо у формі продажу."]});
 }
 function vPurchases(){
@@ -888,6 +904,7 @@ main.addEventListener("keydown",e=>{if(e.target.id==="noteIn"&&e.key==="Enter"&&
 main.addEventListener("change",e=>{
   const i=e.target;
   if(i.id==="period"){period=i.value;render()}
+  if(i.id==="ostat"){ui.ostat=i.value;render()}
   if(i.dataset.col){
     const id=i.dataset.col,st=tblState(id),hid=hiddenOf(id);
     if(i.checked)hid.delete(i.dataset.key);else hid.add(i.dataset.key);
@@ -919,7 +936,7 @@ function openForm(kind,id){
     product:{type:"goods",sku:"",name:"",category:"",supplier:"",minStock:"",price:""},
     kit:{sku:"",name:"",price:"",components:[blankLine.kit()]},
     purchase:{date:today(),batch:nextNumber("purchases","batch","ZAK-"),supplier:"",shipping:"",note:"",lines:[blankLine.purchase()]},
-    order:{date:today(),number:nextNumber("orders","number","ORD-"),channel:"",note:"",commission:"",shipCost:"",lines:[blankLine.order()]},
+    order:{date:today(),number:nextNumber("orders","number","ORD-"),status:"ordered",channel:"",note:"",commission:"",shipCost:"",lines:[blankLine.order()]},
     expense:{date:today(),category:"",amount:"",note:""}
   }[kind];
   for(const k of Object.keys(data))if(k.startsWith("_"))delete data[k];
@@ -1140,6 +1157,7 @@ function sheetBody(){
     <p class="hint">Доставка ділиться між товарами пропорційно їхній вартості й входить у собівартість.</p>
     <div class="calc" id="calc">${calcHtml()}</div>${sup}`;
   if(k==="order")return `<div class="fg three">${fld("date","Дата *",{type:"date"})}${fld("number","№ замовлення")}${fld("channel","Канал",{list:"dl_ch",ph:"Instagram, сайт…",tip:"Де продали. Оберіть зі списку або впишіть новий"})}</div>
+    <div class="sec"><div class="sec-h"><h3>Статус</h3></div><div class="seg ost" role="group" aria-label="Статус замовлення">${OST.map(([key,l,t])=>`<button type="button" class="${t}" data-ost="${key}" aria-pressed="${ostOf(d)===key}"${tipA(OST_TIP[key])}>${l}</button>`).join("")}</div>${ostOf(d)==="returned"&&!d.lines.some(l=>num(l.returned)||num(l.refund))?`<p class="hint">Щоб повернення вплинуло на прибуток і залишки, вкажіть у позиції, скільки штук і грошей повернуто («+ Повернення»).</p>`:""}</div>
     <div class="sec"><div class="sec-h"><h3>Позиції</h3></div><div class="lines">${d.lines.map((l,i)=>{
       const val=l.refId?(l.kind==="kit"?"k:":"p:")+l.refId:"";
       return `<div class="line">
@@ -1213,6 +1231,7 @@ sheetRoot.addEventListener("click",async e=>{
   if(!F)return;const t=e.target,arr=F.data[linesKey()];
   if(t.id==="scrim"||t.closest("#closeS")||t.closest("#cancelS"))return requestClose();
   if(t.closest("#saveS"))return save();
+  const ob=t.closest("[data-ost]");if(ob){F.data.status=ob.dataset.ost;return drawSheet()}
   const pt=t.closest("[data-ptype]");if(pt){F.data.type=pt.dataset.ptype;if(F.data.type==="material"&&!F.data.category)F.data.category="Пакування";return drawSheet()}
   const nt=t.closest("[data-ntype]");if(nt){F.data[linesKey()][+nt.dataset.l]._new.type=nt.dataset.v;drawSheet();document.getElementById(`l_${nt.dataset.l}_newname`)?.focus();return}
   const nc=t.closest("[data-ncancel]");if(nc){delete F.data[linesKey()][+nc.dataset.ncancel]._new;return drawSheet()}
@@ -1305,7 +1324,7 @@ function exportXlsx(){
   add("Зведення",[["Виручка",t.net],["Собівартість проданого",t.cogs],["Комісії",t.commission],["Доставка за рахунок магазину",t.ship],["Прибуток від продажів",t.gross],["Інші витрати",t.expenses],["Чистий результат",t.result]].map(([a,b])=>({"Показник":a,"Сума, грн":r2(b)})));
   add("Товари",Object.values(C.P).map(p=>({"SKU":p.sku,"Назва":p.name,"Тип":isMat(p)?"матеріал":"товар","Категорія":p.category,"Постачальник":p.supplier,"Ціна продажу":r2(p.price),"Мін. залишок":p.minStock,"Закуплено":p.bought,"Продано":p.sold,"Повернено":p.returned,"Залишок":p.stock,"Сер. собівартість":r2(p.avg),"Вартість залишку":r2(p.value),"Прибуток":r2(p.profit)})));
   add("Закупівлі",S.purchases.flatMap(b=>(b.lines||[]).map(l=>({"Дата":b.date,"Партія":b.batch,"Постачальник":b.supplier,"SKU":name(l.productId),"Кількість":l.qty,"Ціна":l.price,"Дод. витрати":l.extra,"Доставка партії":b.shipping,"Примітка":b.note}))));
-  add("Продажі",S.orders.flatMap(o=>(o.lines||[]).map((l,i)=>({"Дата":o.date,"Замовлення":o.number,"Канал":o.channel,"Тип":l.kind==="kit"?"набір":"товар","SKU":l.kind==="kit"?kitName(l.refId):name(l.refId),"Кількість":l.qty,"Ціна":l.price,"Знижка":l.discount,"Повернуто, шт":l.returned,"Повернуто, грн":l.refund,"Комісія (замовл.)":i?"":o.commission,"Доставка (замовл.)":i?"":o.shipCost,"Прибуток (замовл.)":i?"":r2(o._profit),"Примітка":o.note}))));
+  add("Продажі",S.orders.flatMap(o=>(o.lines||[]).map((l,i)=>({"Дата":o.date,"Замовлення":o.number,"Статус":i?"":OST.find(x=>x[0]===ostOf(o))[1],"Канал":o.channel,"Тип":l.kind==="kit"?"набір":"товар","SKU":l.kind==="kit"?kitName(l.refId):name(l.refId),"Кількість":l.qty,"Ціна":l.price,"Знижка":l.discount,"Повернуто, шт":l.returned,"Повернуто, грн":l.refund,"Комісія (замовл.)":i?"":o.commission,"Доставка (замовл.)":i?"":o.shipCost,"Прибуток (замовл.)":i?"":r2(o._profit),"Примітка":o.note}))));
   add("Набори",S.kits.flatMap(k=>(k.components||[]).map(c=>({"SKU набору":k.sku,"Назва":k.name,"Ціна":k.price,"Компонент":name(c.productId),"Кількість":c.qty}))));
   add("Витрати",S.expenses.map(e=>({"Дата":e.date,"Категорія":e.category,"Сума":e.amount,"Коментар":e.note})));
   const buf=XLSX.write(wb,{bookType:"xlsx",type:"array"});
@@ -1420,11 +1439,11 @@ const DEMO=(()=>{
       {id:"demo-b2",date:"2026-09-08",batch:"ZAK-002",supplier:"АромаДім",shipping:80,note:"",lines:[{productId:"demo-p3",qty:10,price:230,extra:0},{productId:"demo-p4",qty:20,price:35,extra:0}]},
       {id:"demo-b3",date:"2026-10-20",batch:"ZAK-003",supplier:"ВоскЛаб",shipping:90,note:"Ціна зросла",lines:[{productId:"demo-p1",qty:15,price:165,extra:0}]}],
     orders:[
-      {id:"demo-o1",date:"2026-09-12",number:"ORD-001",channel:"Instagram",note:"",commission:0,shipCost:60,lines:[ln("product","demo-p1",2,390)]},
-      {id:"demo-o2",date:"2026-09-25",number:"ORD-002",channel:"Rozetka",note:"",commission:145,shipCost:0,lines:[ln("kit","demo-k1",1,1190)]},
-      {id:"demo-o3",date:"2026-10-03",number:"ORD-003",channel:"Сайт",note:"",commission:28,shipCost:0,lines:[ln("product","demo-p3",2,520,{discount:40}),ln("product","demo-p2",3,390,{returned:1,refund:390})]},
-      {id:"demo-o4",date:"2026-10-28",number:"ORD-004",channel:"Instagram",note:"",commission:0,shipCost:75,lines:[ln("kit","demo-k1",3,1190,{discount:100})]},
-      {id:"demo-o5",date:"2026-11-14",number:"ORD-005",channel:"Rozetka",note:"",commission:210,shipCost:0,lines:[ln("product","demo-p1",5,390),ln("product","demo-p3",3,520)]}],
+      {id:"demo-o1",status:"received",date:"2026-09-12",number:"ORD-001",channel:"Instagram",note:"",commission:0,shipCost:60,lines:[ln("product","demo-p1",2,390)]},
+      {id:"demo-o2",status:"received",date:"2026-09-25",number:"ORD-002",channel:"Rozetka",note:"",commission:145,shipCost:0,lines:[ln("kit","demo-k1",1,1190)]},
+      {id:"demo-o3",status:"received",date:"2026-10-03",number:"ORD-003",channel:"Сайт",note:"",commission:28,shipCost:0,lines:[ln("product","demo-p3",2,520,{discount:40}),ln("product","demo-p2",3,390,{returned:1,refund:390})]},
+      {id:"demo-o4",status:"shipped",date:"2026-10-28",number:"ORD-004",channel:"Instagram",note:"",commission:0,shipCost:75,lines:[ln("kit","demo-k1",3,1190,{discount:100})]},
+      {id:"demo-o5",status:"packed",date:"2026-11-14",number:"ORD-005",channel:"Rozetka",note:"",commission:210,shipCost:0,lines:[ln("product","demo-p1",5,390),ln("product","demo-p3",3,520)]}],
     expenses:[
       {id:"demo-e1",date:"2026-09-30",category:"Реклама",amount:1500,note:"Таргет Instagram"},
       {id:"demo-e2",date:"2026-10-01",category:"Сервіси та підписки",amount:450,note:"Хорошоп"},
