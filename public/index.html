@@ -221,7 +221,7 @@ th[aria-sort="ascending"] .arr,th[aria-sort="descending"] .arr{opacity:1}
 .sb-x .ico{width:18px;height:18px}
 .sb-i:focus-visible,.sb-x:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.sbox,.sbox .search,.sb-x{transition:none}}
-.cm-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r);padding:6px;width:260px;max-height:min(60vh,440px);overflow:auto;box-shadow:0 12px 32px rgba(0,0,0,.18);display:flex;flex-direction:column}
+.cm-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r);padding:6px;width:260px;max-height:min(60vh,440px);overflow:auto;box-shadow:0 12px 32px rgba(0,0,0,.18);display:flex;flex-direction:column}
 .cm-pop .cm-t{font-size:12px;font-weight:600;color:var(--muted);padding:6px 8px 4px}
 .cm-pop label{display:flex;gap:10px;align-items:center;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:14px}
 .cm-pop label:hover{background:var(--sunken)}
@@ -810,7 +810,7 @@ function listView({title,id,kind,cols,rows,search,per=true,add,extra="",above=""
   const filtered=(ui.q[id]||"").trim()||(per&&period!=="all")||(id==="orders"&&(ui.ostat||"all")!=="all")||(id==="products"&&(ui.lowOnly||S.products.length&&(ui.ptype||"goods")!=="all"));
   return `<div class="tb">
     <div class="tb-1"><h2>${title}<span class="count">${rows.length}</span></h2>${add||""}</div>
-    <div class="tb-2">${searchBox(id,search)}${per?periodSelect():""}${extra}${rows.length?colsBtn(id):""}</div>
+    <div class="tb-2">${searchBox(id,search)}${per?periodSelect():""}<span class="sp"></span>${extra}${rows.length?colsBtn(id):""}</div>
   </div>${above}${tbl||(filtered?`<div class="empty"><b>Нічого не знайдено</b><p>Змініть пошук або період.</p></div>`:`<div class="empty"><b>${esc(empty[0])}</b><p>${esc(empty[1])}</p></div>`)}`;
 }
 
@@ -945,7 +945,7 @@ function vNotes(){
   const empty=filtered?`<div class="chat-e"><b>Нічого не знайдено</b><p>Змініть пошук або фільтр.</p></div>`:`<div class="chat-e"><b>Записів ще немає</b><p>Напишіть тут, що треба зробити або про що домовились. Партнер побачить запис одразу.</p></div>`;
   return `<div class="tb">
     <div class="tb-1"><h2>Чат<span class="count">${all.length}</span></h2></div>
-    <div class="tb-2">${searchBox("notes","Пошук у записах")}<div class="seg" role="group" aria-label="Які записи показувати">
+    <div class="tb-2">${searchBox("notes","Пошук у записах")}<span class="sp"></span><div class="seg" role="group" aria-label="Які записи показувати">
       <button data-nfilter="all" aria-pressed="${ui.nfilter!=="hot"}">Усі</button><button data-nfilter="hot" aria-pressed="${ui.nfilter==="hot"}"${tipA("Лише записи зі статусом «актуальний»")}>Актуальні${hot?` · ${hot}`:""}</button></div></div>
   </div>
   <div class="chat" id="chat">${rows.length?list:empty}</div>
